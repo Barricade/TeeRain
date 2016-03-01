@@ -62,8 +62,8 @@ public abstract class Cell {
 	}
 
 	public boolean render(Cellularity pCellularity, int pX, int pY, int pZ, float pOffsetX,
-			float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight, float pCos,
-			float pSin, FloatArray[] pRenderBuffers) {
+			float pOffsetY, int pTileX, int pTileY, float pSize, float pCos, float pSin,
+			FloatArray[] pRenderBuffers) {
 		return true;
 	}
 

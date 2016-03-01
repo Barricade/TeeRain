@@ -43,10 +43,10 @@ public final class GraphicsUtils {
 	// ===========================================================
 
 	public static void render(Cell pCell, Cellularity pCellularity, int pX, int pY, int pZ,
-			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight,
-			float pCos, float pSin, FloatArray pRenderBuffer, float pTileTX, float pTileTY,
-			float pTileWidth, float pTileHeight, float pPositionX, float pPositionY,
-			float pLocalWidth, float pLocalHeight, float pLocalCos, float pLocalSin) {
+			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pSize, float pCos,
+			float pSin, FloatArray pRenderBuffer, float pTileTX, float pTileTY, float pTileWidth,
+			float pTileHeight, float pPositionX, float pPositionY, float pLocalWidth,
+			float pLocalHeight, float pLocalCos, float pLocalSin) {
 		int rtR = 0;
 		int rtG = 0;
 		int rtB = 0;
@@ -139,26 +139,25 @@ public final class GraphicsUtils {
 			rbG = chunk.getLightG(x, y, posX, posY, pZ);
 			rbB = chunk.getLightB(x, y, posX, posY, pZ);
 		}
-		int alpha = Settings.DEPTH_TO_ALPHA[pZ];
 		float colorRT =
-				Color.toFloatBits(Math.min(rtR, 255), Math.min(rtG, 255), Math.min(rtB, 255), alpha);
+				Color.toFloatBits(Math.min(rtR, 255), Math.min(rtG, 255), Math.min(rtB, 255), 255);
 		float colorLT =
-				Color.toFloatBits(Math.min(ltR, 255), Math.min(ltG, 255), Math.min(ltB, 255), alpha);
+				Color.toFloatBits(Math.min(ltR, 255), Math.min(ltG, 255), Math.min(ltB, 255), 255);
 		float colorLB =
-				Color.toFloatBits(Math.min(lbR, 255), Math.min(lbG, 255), Math.min(lbB, 255), alpha);
+				Color.toFloatBits(Math.min(lbR, 255), Math.min(lbG, 255), Math.min(lbB, 255), 255);
 		float colorRB =
-				Color.toFloatBits(Math.min(rbR, 255), Math.min(rbG, 255), Math.min(rbB, 255), alpha);
+				Color.toFloatBits(Math.min(rbR, 255), Math.min(rbG, 255), Math.min(rbB, 255), 255);
 		int bufferOffset = pRenderBuffer.size();
 		pRenderBuffer.pushArray(Settings.ELEMENTS_PER_TEXTURE);
 		drawTexture(pOffsetX, pOffsetY, pTileX + pPositionX, pTileY + pPositionY, pLocalWidth,
-				pLocalHeight, pLocalCos, pLocalSin, pWidth, pHeight, pCos, pSin, pTileTX, pTileTY,
-				pTileTX + pTileWidth, pTileTY + pTileHeight, pRenderBuffer.data(), bufferOffset,
+				pLocalHeight, pLocalCos, pLocalSin, pSize, pCos, pSin, pTileTX, pTileTY, pTileTX
+						+ pTileWidth, pTileTY + pTileHeight, pRenderBuffer.data(), bufferOffset,
 				colorRT, colorLT, colorLB, colorRB);
 	}
 
 	public static void render(Cell pCell, Cellularity pCellularity, int pX, int pY, int pZ,
-			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight,
-			float pCos, float pSin, FloatArray pRenderBuffer, float pTileTX, float pTileTY) {
+			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pSize, float pCos,
+			float pSin, FloatArray pRenderBuffer, float pTileTX, float pTileTY) {
 		int rtR = 0;
 		int rtG = 0;
 		int rtB = 0;
@@ -237,28 +236,27 @@ public final class GraphicsUtils {
 				rbB = chunk.getLightB(x, y, posX, posY, pZ);
 			}
 		}
-		int alpha = Settings.DEPTH_TO_ALPHA[pZ];
 		float colorRT =
-				Color.toFloatBits(Math.min(rtR, 255), Math.min(rtG, 255), Math.min(rtB, 255), alpha);
+				Color.toFloatBits(Math.min(rtR, 255), Math.min(rtG, 255), Math.min(rtB, 255), 255);
 		float colorLT =
-				Color.toFloatBits(Math.min(ltR, 255), Math.min(ltG, 255), Math.min(ltB, 255), alpha);
+				Color.toFloatBits(Math.min(ltR, 255), Math.min(ltG, 255), Math.min(ltB, 255), 255);
 		float colorLB =
-				Color.toFloatBits(Math.min(lbR, 255), Math.min(lbG, 255), Math.min(lbB, 255), alpha);
+				Color.toFloatBits(Math.min(lbR, 255), Math.min(lbG, 255), Math.min(lbB, 255), 255);
 		float colorRB =
-				Color.toFloatBits(Math.min(rbR, 255), Math.min(rbG, 255), Math.min(rbB, 255), alpha);
+				Color.toFloatBits(Math.min(rbR, 255), Math.min(rbG, 255), Math.min(rbB, 255), 255);
 		int offset = pRenderBuffer.size();
 		pRenderBuffer.pushArray(Settings.ELEMENTS_PER_TEXTURE);
-		drawTexture(pOffsetX, pOffsetY, pTileX * 2, pTileY * 2, 2, 2, pWidth / 2, pHeight / 2,
-				pCos, pSin, pTileTX, pTileTY, pTileTX + Settings.TILE_W, pTileTY + Settings.TILE_H,
+		drawTexture(pOffsetX, pOffsetY, pTileX * 2, pTileY * 2, 2, 2, pSize / 2, pCos, pSin,
+				pTileTX, pTileTY, pTileTX + Settings.TILE_W, pTileTY + Settings.TILE_H,
 				pRenderBuffer.data(), offset, colorRT, colorLT, colorLB, colorRB);
 	}
 
 	public static boolean render(Cell pCell, Cellularity pCellularity, int pX, int pY, int pZ,
-			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight,
-			float pCos, float pSin, FloatArray pRenderBuffer, float pTileNX, float pTileNY,
-			float pTileSX, float pTileSY, float pTileHX, float pTileHY, float pTileVX,
-			float pTileVY, float pTileBX, float pTileBY, boolean pTileNTr, boolean pTileSTr,
-			boolean pTileHTr, boolean pTileVTr, boolean pTileBTr) {
+			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pSize, float pCos,
+			float pSin, FloatArray pRenderBuffer, float pTileNX, float pTileNY, float pTileSX,
+			float pTileSY, float pTileHX, float pTileHY, float pTileVX, float pTileVY,
+			float pTileBX, float pTileBY, boolean pTileNTr, boolean pTileSTr, boolean pTileHTr,
+			boolean pTileVTr, boolean pTileBTr) {
 		int rtR = 0;
 		int rtG = 0;
 		int rtB = 0;
@@ -337,25 +335,23 @@ public final class GraphicsUtils {
 				rbB = chunk.getLightB(x, y, posX, posY, pZ);
 			}
 		}
-		int alpha = Settings.DEPTH_TO_ALPHA[pZ];
 		float colorRT =
-				Color.toFloatBits(Math.min(rtR, 255), Math.min(rtG, 255), Math.min(rtB, 255), alpha);
+				Color.toFloatBits(Math.min(rtR, 255), Math.min(rtG, 255), Math.min(rtB, 255), 255);
 		float colorLT =
-				Color.toFloatBits(Math.min(ltR, 255), Math.min(ltG, 255), Math.min(ltB, 255), alpha);
+				Color.toFloatBits(Math.min(ltR, 255), Math.min(ltG, 255), Math.min(ltB, 255), 255);
 		float colorLB =
-				Color.toFloatBits(Math.min(lbR, 255), Math.min(lbG, 255), Math.min(lbB, 255), alpha);
+				Color.toFloatBits(Math.min(lbR, 255), Math.min(lbG, 255), Math.min(lbB, 255), 255);
 		float colorRB =
-				Color.toFloatBits(Math.min(rbR, 255), Math.min(rbG, 255), Math.min(rbB, 255), alpha);
+				Color.toFloatBits(Math.min(rbR, 255), Math.min(rbG, 255), Math.min(rbB, 255), 255);
 
 		int cellHV = pCell.tilesConnectedMask();
 
 		if (cellHV == 255) {
 			int offset = pRenderBuffer.size();
 			pRenderBuffer.pushArray(Settings.ELEMENTS_PER_TEXTURE);
-			drawTexture(pOffsetX, pOffsetY, pTileX * 2, pTileY * 2, 2, 2, pWidth / 2, pHeight / 2,
-					pCos, pSin, pTileNX, pTileNY, pTileNX + Settings.TILE_W, pTileNY
-							+ Settings.TILE_H, pRenderBuffer.data(), offset, colorRT, colorLT,
-					colorLB, colorRB);
+			drawTexture(pOffsetX, pOffsetY, pTileX * 2, pTileY * 2, 2, 2, pSize / 2, pCos, pSin,
+					pTileNX, pTileNY, pTileNX + Settings.TILE_W, pTileNY + Settings.TILE_H,
+					pRenderBuffer.data(), offset, colorRT, colorLT, colorLB, colorRB);
 			return pTileNTr;
 		}
 
@@ -381,36 +377,34 @@ public final class GraphicsUtils {
 		int bG = (lbG + rbG) / 2;
 		int bB = (lbB + rbB) / 2;
 		float colorC =
-				Color.toFloatBits(Math.min(cR, 255), Math.min(cG, 255), Math.min(cB, 255), alpha);
+				Color.toFloatBits(Math.min(cR, 255), Math.min(cG, 255), Math.min(cB, 255), 255);
 		float colorR =
-				Color.toFloatBits(Math.min(rR, 255), Math.min(rG, 255), Math.min(rB, 255), alpha);
+				Color.toFloatBits(Math.min(rR, 255), Math.min(rG, 255), Math.min(rB, 255), 255);
 		float colorT =
-				Color.toFloatBits(Math.min(tR, 255), Math.min(tG, 255), Math.min(tB, 255), alpha);
+				Color.toFloatBits(Math.min(tR, 255), Math.min(tG, 255), Math.min(tB, 255), 255);
 		float colorL =
-				Color.toFloatBits(Math.min(lR, 255), Math.min(lG, 255), Math.min(lB, 255), alpha);
+				Color.toFloatBits(Math.min(lR, 255), Math.min(lG, 255), Math.min(lB, 255), 255);
 		float colorB =
-				Color.toFloatBits(Math.min(bR, 255), Math.min(bG, 255), Math.min(bB, 255),
-						Settings.DEPTH_TO_ALPHA[pZ]);
-		return render(pCell, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX, pTileY, pWidth,
-				pHeight, pCos, pSin, pRenderBuffer, pTileNX, pTileNY, pTileSX, pTileSY, pTileHX,
-				pTileHY, pTileVX, pTileVY, pTileBX, pTileBY, pTileNTr, pTileSTr, pTileHTr,
-				pTileVTr, pTileBTr, colorRT, colorLT, colorLB, colorRB, colorC, colorR, colorT,
-				colorL, colorB, cellHV);
+				Color.toFloatBits(Math.min(bR, 255), Math.min(bG, 255), Math.min(bB, 255), 255);
+		return render(pCell, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX, pTileY, pSize,
+				pCos, pSin, pRenderBuffer, pTileNX, pTileNY, pTileSX, pTileSY, pTileHX, pTileHY,
+				pTileVX, pTileVY, pTileBX, pTileBY, pTileNTr, pTileSTr, pTileHTr, pTileVTr,
+				pTileBTr, colorRT, colorLT, colorLB, colorRB, colorC, colorR, colorT, colorL,
+				colorB, cellHV);
 	}
 
 	public static boolean render(Cell pCell, Cellularity pCellularity, int pX, int pY, int pZ,
-			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight,
-			float pCos, float pSin, FloatArray pRenderBuffer, float pTileNX, float pTileNY,
-			float pTileSX, float pTileSY, float pTileHX, float pTileHY, float pTileVX,
-			float pTileVY, float pTileBX, float pTileBY, boolean pTileNTr, boolean pTileSTr,
-			boolean pTileHTr, boolean pTileVTr, boolean pTileBTr, float pColorRT, float pColorLT,
-			float pColorLB, float pColorRB, float pColorC, float pColorR, float pColorT,
-			float pColorL, float pColorB, int pCellHV) {
+			float pOffsetX, float pOffsetY, int pTileX, int pTileY, float pSize, float pCos,
+			float pSin, FloatArray pRenderBuffer, float pTileNX, float pTileNY, float pTileSX,
+			float pTileSY, float pTileHX, float pTileHY, float pTileVX, float pTileVY,
+			float pTileBX, float pTileBY, boolean pTileNTr, boolean pTileSTr, boolean pTileHTr,
+			boolean pTileVTr, boolean pTileBTr, float pColorRT, float pColorLT, float pColorLB,
+			float pColorRB, float pColorC, float pColorR, float pColorT, float pColorL,
+			float pColorB, int pCellHV) {
 
 		int smallTileX = pTileX * 2;
 		int smallTileY = pTileY * 2;
-		float halfWidth = pWidth / 2;
-		float halfHeight = pHeight / 2;
+		float halfSize = pSize / 2;
 
 		boolean flag = false;
 		{
@@ -444,9 +438,9 @@ public final class GraphicsUtils {
 			float v2 = v1 + Settings.TILE_HALF_H;
 			int offset = pRenderBuffer.size();
 			pRenderBuffer.pushArray(Settings.ELEMENTS_PER_TEXTURE);
-			drawTexture(pOffsetX, pOffsetY, smallTileX + 1, smallTileY + 1, 1, 1, halfWidth,
-					halfHeight, pCos, pSin, u1, v1, u2, v2, pRenderBuffer.data(), offset, pColorRT,
-					pColorT, pColorC, pColorR);
+			drawTexture(pOffsetX, pOffsetY, smallTileX + 1, smallTileY + 1, 1, 1, halfSize, pCos,
+					pSin, u1, v1, u2, v2, pRenderBuffer.data(), offset, pColorRT, pColorT, pColorC,
+					pColorR);
 		}
 
 		{
@@ -480,9 +474,9 @@ public final class GraphicsUtils {
 			float v2 = v1 + Settings.TILE_HALF_H;
 			int offset = pRenderBuffer.size();
 			pRenderBuffer.pushArray(Settings.ELEMENTS_PER_TEXTURE);
-			drawTexture(pOffsetX, pOffsetY, smallTileX, smallTileY + 1, 1, 1, halfWidth,
-					halfHeight, pCos, pSin, u1, v1, u2, v2, pRenderBuffer.data(), offset, pColorT,
-					pColorLT, pColorL, pColorC);
+			drawTexture(pOffsetX, pOffsetY, smallTileX, smallTileY + 1, 1, 1, halfSize, pCos, pSin,
+					u1, v1, u2, v2, pRenderBuffer.data(), offset, pColorT, pColorLT, pColorL,
+					pColorC);
 		}
 
 		{
@@ -516,9 +510,8 @@ public final class GraphicsUtils {
 			float v2 = v1 + Settings.TILE_HALF_H;
 			int offset = pRenderBuffer.size();
 			pRenderBuffer.pushArray(Settings.ELEMENTS_PER_TEXTURE);
-			drawTexture(pOffsetX, pOffsetY, smallTileX, smallTileY, 1, 1, halfWidth, halfHeight,
-					pCos, pSin, u1, v1, u2, v2, pRenderBuffer.data(), offset, pColorC, pColorL,
-					pColorLB, pColorB);
+			drawTexture(pOffsetX, pOffsetY, smallTileX, smallTileY, 1, 1, halfSize, pCos, pSin, u1,
+					v1, u2, v2, pRenderBuffer.data(), offset, pColorC, pColorL, pColorLB, pColorB);
 		}
 
 		{
@@ -552,23 +545,23 @@ public final class GraphicsUtils {
 			float v2 = v1 + Settings.TILE_HALF_H;
 			int offset = pRenderBuffer.size();
 			pRenderBuffer.pushArray(Settings.ELEMENTS_PER_TEXTURE);
-			drawTexture(pOffsetX, pOffsetY, smallTileX + 1, smallTileY, 1, 1, halfWidth,
-					halfHeight, pCos, pSin, u1, v1, u2, v2, pRenderBuffer.data(), offset, pColorR,
-					pColorC, pColorB, pColorRB);
+			drawTexture(pOffsetX, pOffsetY, smallTileX + 1, smallTileY, 1, 1, halfSize, pCos, pSin,
+					u1, v1, u2, v2, pRenderBuffer.data(), offset, pColorR, pColorC, pColorB,
+					pColorRB);
 		}
 
 		return flag;
 	}
 
 	public static void drawTexture(float pOffsetX, float pOffsetY, int pTileX, int pTileY,
-			int pTilesWidth, int pTilesHeight, float pWidth, float pHeight, float pCos, float pSin,
-			float pU1, float pV1, float pU2, float pV2, float[] pRenderBuffer,
-			int pRenderBufferOffset, float pColorRT, float pColorLT, float pColorLB, float pColorRB) {
+			int pTilesWidth, int pTilesHeight, float pSize, float pCos, float pSin, float pU1,
+			float pV1, float pU2, float pV2, float[] pRenderBuffer, int pRenderBufferOffset,
+			float pColorRT, float pColorLT, float pColorLB, float pColorRB) {
 
-		float tmpRX = (pTileX + pTilesWidth) * pWidth;
-		float tmpRY = (pTileY + pTilesHeight) * pHeight;
-		float tmpLX = pTileX * pWidth;
-		float tmpLY = pTileY * pHeight;
+		float tmpRX = (pTileX + pTilesWidth) * pSize;
+		float tmpRY = (pTileY + pTilesHeight) * pSize;
+		float tmpLX = pTileX * pSize;
+		float tmpLY = pTileY * pSize;
 
 		float xrt, yrt, xlt, ylt, xlb, ylb, xrb, yrb;
 
@@ -619,9 +612,9 @@ public final class GraphicsUtils {
 
 	public static void drawTexture(float pOffsetX, float pOffsetY, float pPositionX,
 			float pPositionY, float pLocalWidth, float pLocalHeight, float pLocalCos,
-			float pLocalSin, float pWidth, float pHeight, float pCos, float pSin, float pU1,
-			float pV1, float pU2, float pV2, float[] pRenderBuffer, int pRenderBufferOffset,
-			float pColorRT, float pColorLT, float pColorLB, float pColorRB) {
+			float pLocalSin, float pSize, float pCos, float pSin, float pU1, float pV1, float pU2,
+			float pV2, float[] pRenderBuffer, int pRenderBufferOffset, float pColorRT,
+			float pColorLT, float pColorLB, float pColorRB) {
 
 		float vrtx = (pLocalCos * pLocalWidth - pLocalSin * pLocalHeight) / 2;
 		float vrty = (pLocalSin * pLocalWidth + pLocalCos * pLocalHeight) / 2;
@@ -631,14 +624,14 @@ public final class GraphicsUtils {
 		float vlby = -vrty;
 		float vrbx = -vltx;
 		float vrby = -vlty;
-		float tmpRTX = (pPositionX + vrtx) * pWidth;
-		float tmpRTY = (pPositionY + vrty) * pHeight;
-		float tmpLTX = (pPositionX + vltx) * pWidth;
-		float tmpLTY = (pPositionY + vlty) * pHeight;
-		float tmpRBX = (pPositionX + vrbx) * pWidth;
-		float tmpRBY = (pPositionY + vrby) * pHeight;
-		float tmpLBX = (pPositionX + vlbx) * pWidth;
-		float tmpLBY = (pPositionY + vlby) * pHeight;
+		float tmpRTX = (pPositionX + vrtx) * pSize;
+		float tmpRTY = (pPositionY + vrty) * pSize;
+		float tmpLTX = (pPositionX + vltx) * pSize;
+		float tmpLTY = (pPositionY + vlty) * pSize;
+		float tmpRBX = (pPositionX + vrbx) * pSize;
+		float tmpRBY = (pPositionY + vrby) * pSize;
+		float tmpLBX = (pPositionX + vlbx) * pSize;
+		float tmpLBY = (pPositionY + vlby) * pSize;
 		float xrt = pCos * tmpRTX - pSin * tmpRTY;
 		float yrt = pSin * tmpRTX + pCos * tmpRTY;
 		float xlt = pCos * tmpLTX - pSin * tmpLTY;

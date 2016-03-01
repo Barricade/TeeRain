@@ -47,7 +47,6 @@ import com.gaskarov.teerain.cell.AirCell;
 import com.gaskarov.teerain.cell.Cell;
 import com.gaskarov.teerain.cell.VacuumCell;
 import com.gaskarov.teerain.cell.VoidCell;
-import com.gaskarov.teerain.tissularity.MainTissularity;
 import com.gaskarov.teerain.tissularity.Tissularity;
 import com.gaskarov.teerain.util.MetaBody;
 import com.gaskarov.teerain.util.TimeMeasure;
@@ -664,8 +663,11 @@ public final class Cellularity {
 
 	public void refreshBodies() {
 		for (List.Node j = mCellularities.begin(); j != mCellularities.end(); j =
-				mCellularities.next(j))
-			((Cellularity) mCellularities.val(j)).mMetaBody.refresh();
+				mCellularities.next(j)) {
+			Cellularity cellularity = (Cellularity) mCellularities.val(j);
+			cellularity.mMetaBody.refreshLastPositions();
+			cellularity.mMetaBody.refresh();
+		}
 	}
 
 	public void refreshCellularitiesChunks() {
@@ -763,39 +765,50 @@ public final class Cellularity {
 		return (short) m;
 	}
 
-	public void render(boolean[][] pHiddenCells, FloatArray[] pRenderBuffers, int pOffsetX,
-			int pOffsetY, float pCameraX, float pCameraY, float pCellWidth, float pCellHeight,
-			int pChunkX, int pChunkY, float pWidth, float pHeight, int pZ) {
+	public void render(boolean[][] pHiddenCells, int pHiddenCellsSize, FloatArray[] pRenderBuffers,
+			int pOffsetX, int pOffsetY, float pCameraX, float pCameraY, float pCellSize,
+			int pChunkX, int pChunkY, float pWidth, float pHeight, int pZ, float pDt) {
 		if (isChunk())
-			renderStatic(pHiddenCells, pRenderBuffers, pOffsetX, pOffsetY, pCameraX, pCameraY,
-					pCellWidth, pCellHeight, pChunkX, pChunkY, pWidth, pHeight, pZ);
+			renderStatic(pHiddenCells, pHiddenCellsSize, pRenderBuffers, pOffsetX, pOffsetY,
+					pCameraX, pCameraY, pCellSize, pChunkX, pChunkY, pWidth, pHeight, pZ);
 		else
-			renderDynamic(pRenderBuffers, pOffsetX, pOffsetY, pCellWidth, pCellHeight, pChunkX,
-					pChunkY);
+			renderDynamic(pRenderBuffers, pOffsetX, pOffsetY, pCameraX, pCameraY, pCellSize,
+					pChunkX, pChunkY, pDt);
 	}
 
 	private void renderDynamic(FloatArray[] pRenderBuffers, int pOffsetX, int pOffsetY,
-			float pCellWidth, float pCellHeight, int pChunkX, int pChunkY) {
-		float cos = (float) Math.cos(mMetaBody.getAngle());
-		float sin = (float) Math.sin(mMetaBody.getAngle());
-		float posX = (pChunkX << Settings.CHUNK_SIZE_LOG) - pOffsetX + mMetaBody.getPositionX();
-		float posY = (pChunkY << Settings.CHUNK_SIZE_LOG) - pOffsetY + mMetaBody.getPositionY();
-		posX *= pCellWidth;
-		posY *= pCellHeight;
+			float pCameraX, float pCameraY, float pCellSize, int pChunkX, int pChunkY, float pDt) {
+		float timeRatio = pDt / Settings.TIME_STEP;
+		float oneMinusTimeRation = 1f - timeRatio;
+		float angle =
+				mMetaBody.getAngle() * timeRatio + mMetaBody.getLastAngle() * oneMinusTimeRation;
+		float cos = (float) Math.cos(angle);
+		float sin = (float) Math.sin(angle);
+		float posX =
+				(pChunkX << Settings.CHUNK_SIZE_LOG) - pOffsetX + mMetaBody.getPositionX()
+						* timeRatio + mMetaBody.getLastPositionX() * oneMinusTimeRation - pCameraX;
+		float posY =
+				(pChunkY << Settings.CHUNK_SIZE_LOG) - pOffsetY + mMetaBody.getPositionY()
+						* timeRatio + mMetaBody.getLastPositionY() * oneMinusTimeRation - pCameraY;
+		posX *= pCellSize;
+		posY *= pCellSize;
 		for (int i = mCellsKeys.size() - 1; i >= 0; --i) {
 			int val = mCellsKeys.key(i);
 			int x = getValX(val);
 			int y = getValY(val);
 			int z = getValZ(val);
 			Cell cell = getCellHelper(x, y, z);
-			cell.render(this, x, y, z, posX, posY, x - Settings.CHUNK_HSIZE, y
-					- Settings.CHUNK_HSIZE, pCellWidth, pCellHeight, cos, sin, pRenderBuffers);
+			float depthFactor = Settings.DEPTH_FACTORS[z];
+			cell.render(this, x, y, z, posX / depthFactor, posY / depthFactor, x
+					- Settings.CHUNK_HSIZE, y - Settings.CHUNK_HSIZE, pCellSize / depthFactor, cos,
+					sin, pRenderBuffers);
 		}
 	}
 
-	private void renderStatic(boolean[][] pHiddenCells, FloatArray[] pRenderBuffers, int pOffsetX,
-			int pOffsetY, float pCameraX, float pCameraY, float pCellWidth, float pCellHeight,
-			int pChunkX, int pChunkY, float pWidth, float pHeight, int pZ) {
+	private void renderStatic(boolean[][] pHiddenCells, int pHiddenCellsSize,
+			FloatArray[] pRenderBuffers, int pOffsetX, int pOffsetY, float pCameraX,
+			float pCameraY, float pCellSize, int pChunkX, int pChunkY, float pWidth, float pHeight,
+			int pZ) {
 		int chunkX = pChunkX << Settings.CHUNK_SIZE_LOG;
 		int chunkY = pChunkY << Settings.CHUNK_SIZE_LOG;
 		int tmpX = chunkX - pOffsetX;
@@ -811,6 +824,12 @@ public final class Cellularity {
 		int col2 = Math.min(CHUNK_RIGHT, MathUtils.floor(pCameraX + depthWidth / 2) - tmpX);
 		int row1 = Math.max(CHUNK_BOTTOM, MathUtils.floor(pCameraY - depthHeight / 2) - tmpY);
 		int row2 = Math.min(CHUNK_TOP, MathUtils.floor(pCameraY + depthHeight / 2) - tmpY);
+
+		pCellSize /= depthFactor;
+
+		float offsetX = -pCameraX * pCellSize;
+		float offsetY = -pCameraY * pCellSize;
+
 		for (int y = row1; y <= row2; ++y)
 			for (int x = col1; x <= col2; ++x) {
 				if (pZ != CHUNK_MIN_DEPTH) {
@@ -820,27 +839,25 @@ public final class Cellularity {
 					int hiddenY =
 							MathUtils.floor((tmpY + y - pCameraY) / depthFactor + pCameraY - tmpY)
 									- bottom;
-					if ((0 > hiddenX || hiddenX >= MainTissularity.HIDDEN_CELLS_SIZE || 0 > hiddenY
-							|| hiddenY >= MainTissularity.HIDDEN_CELLS_SIZE || !pHiddenCells[hiddenY][hiddenX])
-							&& (0 > hiddenX + 1 || hiddenX + 1 >= MainTissularity.HIDDEN_CELLS_SIZE
-									|| 0 > hiddenY || hiddenY >= MainTissularity.HIDDEN_CELLS_SIZE || !pHiddenCells[hiddenY][hiddenX + 1])
-							&& (0 > hiddenX || hiddenX >= MainTissularity.HIDDEN_CELLS_SIZE
-									|| 0 > hiddenY + 1
-									|| hiddenY + 1 >= MainTissularity.HIDDEN_CELLS_SIZE || !pHiddenCells[hiddenY + 1][hiddenX])
-							&& (0 > hiddenX + 1 || hiddenX + 1 >= MainTissularity.HIDDEN_CELLS_SIZE
-									|| 0 > hiddenY + 1
-									|| hiddenY + 1 >= MainTissularity.HIDDEN_CELLS_SIZE || !pHiddenCells[hiddenY + 1][hiddenX + 1]))
+					if ((0 > hiddenX || hiddenX >= pHiddenCellsSize || 0 > hiddenY
+							|| hiddenY >= pHiddenCellsSize || !pHiddenCells[hiddenY][hiddenX])
+							&& (0 > hiddenX + 1 || hiddenX + 1 >= pHiddenCellsSize || 0 > hiddenY
+									|| hiddenY >= pHiddenCellsSize || !pHiddenCells[hiddenY][hiddenX + 1])
+							&& (0 > hiddenX || hiddenX >= pHiddenCellsSize || 0 > hiddenY + 1
+									|| hiddenY + 1 >= pHiddenCellsSize || !pHiddenCells[hiddenY + 1][hiddenX])
+							&& (0 > hiddenX + 1 || hiddenX + 1 >= pHiddenCellsSize
+									|| 0 > hiddenY + 1 || hiddenY + 1 >= pHiddenCellsSize || !pHiddenCells[hiddenY + 1][hiddenX + 1]))
 						continue;
 				}
 				Cell cell = getCellHelper(x, y, pZ);
 				boolean flag =
-						cell.render(this, x, y, pZ, 0.0f, 0.0f, x + tmpX, y + tmpY, pCellWidth,
-								pCellHeight, 1.0f, 0.0f, pRenderBuffers);
+						cell.render(this, x, y, pZ, offsetX, offsetY, x + tmpX, y + tmpY,
+								pCellSize, 1.0f, 0.0f, pRenderBuffers);
 				if (pZ == CHUNK_MIN_DEPTH) {
 					int hiddenX = x - left;
 					int hiddenY = y - bottom;
-					if (0 <= hiddenX && hiddenX < MainTissularity.HIDDEN_CELLS_SIZE && 0 <= hiddenY
-							&& hiddenY < MainTissularity.HIDDEN_CELLS_SIZE)
+					if (0 <= hiddenX && hiddenX < pHiddenCellsSize && 0 <= hiddenY
+							&& hiddenY < pHiddenCellsSize)
 						pHiddenCells[hiddenY][hiddenX] = flag;
 				}
 			}
@@ -1183,15 +1200,15 @@ public final class Cellularity {
 	}
 
 	private int skyR(int pX, int pY) {
-		return 256;
+		return 255;
 	}
 
 	private int skyG(int pX, int pY) {
-		return 256;
+		return 255;
 	}
 
 	private int skyB(int pX, int pY) {
-		return 256;
+		return 255;
 	}
 
 	private Cellularity getChunk(int pX, int pY) {

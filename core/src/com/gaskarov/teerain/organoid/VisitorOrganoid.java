@@ -148,8 +148,9 @@ public class VisitorOrganoid {
 		MetaBody body = cellularity.getBody();
 		float c = (float) Math.cos(body.getAngle());
 		float s = (float) Math.sin(body.getAngle());
-		float x = body.getPositionX() + (pX + 0.5f) * c - (pY + 0.5f) * s;
-		float y = body.getPositionY() + (pX + 0.5f) * s + (pY + 0.5f) * c;
+		float offset = cellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
+		float x = body.getPositionX() + (pX - offset + 0.5f) * c - (pY - offset + 0.5f) * s;
+		float y = body.getPositionY() + (pX - offset + 0.5f) * s + (pY - offset + 0.5f) * c;
 		int lx =
 				MathUtils.divFloor(MathUtils.floor(x) - (Settings.VISITOR_WIDTH + 1) / 2,
 						Settings.CHUNK_SIZE)

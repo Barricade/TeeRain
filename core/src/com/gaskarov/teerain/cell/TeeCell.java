@@ -71,7 +71,7 @@ public final class TeeCell extends Cell {
 	@Override
 	public void attach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		pCellularity.setCellLightData(pX, pY, pZ, 0, Settings.SOLID_LIGHT_RESISTANCE_ID,
-				Settings.LAMP_LIGHT_SOURCE_ID);
+				Settings.NO_LIGHT_SOURCE_ID);
 		DynamicLight.attach(pCellularity, pX, pY, pZ, this);
 		mPhysicsWallOrganoid.attach(pCellularity, pX, pY, pZ, this);
 		mControlOrganoid.attach(pCellularity, pX, pY, pZ, this);
@@ -184,12 +184,12 @@ public final class TeeCell extends Cell {
 
 	@Override
 	public boolean render(Cellularity pCellularity, int pX, int pY, int pZ, float pOffsetX,
-			float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight, float pCos,
-			float pSin, FloatArray[] pRenderBuffers) {
+			float pOffsetY, int pTileX, int pTileY, float pSize, float pCos, float pSin,
+			FloatArray[] pRenderBuffers) {
 		{
 			FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER_BODY];
 			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pWidth, pHeight, pCos, pSin, renderBuffer, TILE_X, TILE_Y);
+					pTileY, pSize, pCos, pSin, renderBuffer, TILE_X, TILE_Y);
 		}
 		{
 			FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER_FRONT];
@@ -198,7 +198,7 @@ public final class TeeCell extends Cell {
 			float eyesX = 0.5f + mControlOrganoid.getEyesX() / 8;
 			float eyesY = 0.5f + mControlOrganoid.getEyesY() / 8;
 			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pWidth, pHeight, pCos, pSin, renderBuffer, TILE_EYES_X, TILE_EYES_Y,
+					pTileY, pSize, pCos, pSin, renderBuffer, TILE_EYES_X, TILE_EYES_Y,
 					Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, eyesX, eyesY, eyesW, eyesH, 1f,
 					0f);
 		}
@@ -225,7 +225,7 @@ public final class TeeCell extends Cell {
 			float footW = 0.5f;
 			float footH = 0.25f;
 			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pWidth, pHeight, pCos, pSin, renderBuffer, TILE_FOOT_X, TILE_FOOT_Y,
+					pTileY, pSize, pCos, pSin, renderBuffer, TILE_FOOT_X, TILE_FOOT_Y,
 					Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX, footY, footW, footH,
 					(float) Math.cos(footR), (float) Math.sin(footR));
 		}
@@ -253,7 +253,7 @@ public final class TeeCell extends Cell {
 			float footW = 0.5f;
 			float footH = 0.25f;
 			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pWidth, pHeight, pCos, pSin, renderBuffer, TILE_FOOT_X, TILE_FOOT_Y,
+					pTileY, pSize, pCos, pSin, renderBuffer, TILE_FOOT_X, TILE_FOOT_Y,
 					Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX, footY, footW, footH,
 					(float) Math.cos(footR), (float) Math.sin(footR));
 		}

@@ -3,6 +3,7 @@ package com.gaskarov.teerain.cell;
 import com.gaskarov.teerain.Settings;
 import com.gaskarov.teerain.cellularity.Cellularity;
 import com.gaskarov.teerain.organoid.PhysicsWallOrganoid;
+import com.gaskarov.teerain.util.DynamicLight;
 import com.gaskarov.teerain.util.GraphicsUtils;
 import com.gaskarov.util.constants.ArrayConstants;
 import com.gaskarov.util.constants.GlobalConstants;
@@ -15,53 +16,29 @@ import com.gaskarov.util.container.FloatArray;
  * 
  * @author Ayrat Gaskarov
  */
-public final class TreeCell extends Cell {
+public final class LampCell extends Cell {
 
 	// ===========================================================
 	// Constants
 	// ===========================================================
 
-	public static final float TILE_WOOD_N_X = Settings.TILE_W * 3;
-	public static final float TILE_WOOD_N_Y = Settings.TILE_H * 3;
-	public static final float TILE_WOOD_S_X = Settings.TILE_W * 3;
-	public static final float TILE_WOOD_S_Y = Settings.TILE_H * 3;
-	public static final float TILE_WOOD_H_X = Settings.TILE_W * 4;
-	public static final float TILE_WOOD_H_Y = Settings.TILE_H * 3;
-	public static final float TILE_WOOD_V_X = Settings.TILE_W * 3;
-	public static final float TILE_WOOD_V_Y = Settings.TILE_H * 3;
-	public static final float TILE_WOOD_B_X = Settings.TILE_W * 4;
-	public static final float TILE_WOOD_B_Y = Settings.TILE_H * 3;
-	public static final boolean TILE_WOOD_N_TR = true;
-	public static final boolean TILE_WOOD_S_TR = true;
-	public static final boolean TILE_WOOD_H_TR = true;
-	public static final boolean TILE_WOOD_V_TR = true;
-	public static final boolean TILE_WOOD_B_TR = true;
+	public static final float TILE_N_X = Settings.TILE_W * 0;
+	public static final float TILE_N_Y = Settings.TILE_H * 4;
+	public static final float TILE_S_X = Settings.TILE_W * 1;
+	public static final float TILE_S_Y = Settings.TILE_H * 4;
+	public static final float TILE_H_X = Settings.TILE_W * 2;
+	public static final float TILE_H_Y = Settings.TILE_H * 4;
+	public static final float TILE_V_X = Settings.TILE_W * 3;
+	public static final float TILE_V_Y = Settings.TILE_H * 4;
+	public static final float TILE_B_X = Settings.TILE_W * 4;
+	public static final float TILE_B_Y = Settings.TILE_H * 4;
+	public static final boolean TILE_N_TR = true;
+	public static final boolean TILE_S_TR = true;
+	public static final boolean TILE_H_TR = true;
+	public static final boolean TILE_V_TR = true;
+	public static final boolean TILE_B_TR = true;
 
-	public static final int LAYER_WOOD = 1;
-
-	public static final float TILE_LEAVES_N_X = Settings.TILE_W * 0;
-	public static final float TILE_LEAVES_N_Y = Settings.TILE_H * 2;
-	public static final float TILE_LEAVES_S_X = Settings.TILE_W * 1;
-	public static final float TILE_LEAVES_S_Y = Settings.TILE_H * 2;
-	public static final float TILE_LEAVES_H_X = Settings.TILE_W * 2;
-	public static final float TILE_LEAVES_H_Y = Settings.TILE_H * 2;
-	public static final float TILE_LEAVES_V_X = Settings.TILE_W * 3;
-	public static final float TILE_LEAVES_V_Y = Settings.TILE_H * 2;
-	public static final float TILE_LEAVES_B_X = Settings.TILE_W * 4;
-	public static final float TILE_LEAVES_B_Y = Settings.TILE_H * 2;
-	public static final boolean TILE_LEAVES_N_TR = false;
-	public static final boolean TILE_LEAVES_S_TR = true;
-	public static final boolean TILE_LEAVES_H_TR = true;
-	public static final boolean TILE_LEAVES_V_TR = true;
-	public static final boolean TILE_LEAVES_B_TR = true;
-
-	public static final int LAYER_LEAVES = 0;
-
-	public static final float TILE_SAPLING_X = Settings.TILE_W * 8;
-	public static final float TILE_SAPLING_Y = Settings.TILE_H * 0;
-	public static final boolean TILE_SAPLING_TR = true;
-
-	public static final int LAYER_SAPLING = 1;
+	public static final int LAYER = 0;
 
 	public static final float BORDER_SIZE = 0.02f;
 	public static final float CORNER_SIZE = 0.1f;
@@ -70,20 +47,11 @@ public final class TreeCell extends Cell {
 	public static final float DENSITY = 1.0f;
 	public static final float RESTITUTION = 0.0f;
 
-	public static final int MAX_TREE_SIZE = 8;
-
-	public static final int UPDATE_ANOTHER_PRIORITY = 8;
-
-	public static final int GROW_DELAY = 60;
-
 	// ===========================================================
 	// Fields
 	// ===========================================================
 
 	private static final Array sPool = Array.obtain();
-
-	private int mTreeSize;
-	private int mLeavesSize;
 
 	private PhysicsWallOrganoid mPhysicsWallOrganoid;
 	private int mTilesConnectedMask;
@@ -92,7 +60,7 @@ public final class TreeCell extends Cell {
 	// Constructors
 	// ===========================================================
 
-	private TreeCell() {
+	private LampCell() {
 	}
 
 	// ===========================================================
@@ -105,8 +73,9 @@ public final class TreeCell extends Cell {
 
 	@Override
 	public void attach(Cellularity pCellularity, int pX, int pY, int pZ) {
-		pCellularity.setCellLightData(pX, pY, pZ, 0, Settings.SOLID_LIGHT_RESISTANCE_ID,
-				Settings.NO_LIGHT_SOURCE_ID);
+		pCellularity.setCellLightData(pX, pY, pZ, 0, Settings.AIR_LIGHT_RESISTANCE_ID,
+				Settings.LAMP_LIGHT_SOURCE_ID + (int) (Math.random() * 7));
+		DynamicLight.attach(pCellularity, pX, pY, pZ, this);
 		mPhysicsWallOrganoid.attach(pCellularity, pX, pY, pZ, this);
 	}
 
@@ -115,6 +84,7 @@ public final class TreeCell extends Cell {
 		pCellularity.setCellLightData(pX, pY, pZ, 0, Settings.NO_LIGHT_RESISTANCE_ID,
 				Settings.NO_LIGHT_SOURCE_ID);
 		mPhysicsWallOrganoid.detach(pCellularity, pX, pY, pZ, this);
+		DynamicLight.detach(pCellularity, pX, pY, pZ, this);
 	}
 
 	@Override
@@ -131,6 +101,11 @@ public final class TreeCell extends Cell {
 	}
 
 	@Override
+	public void tick(Cellularity pCellularity, int pX, int pY, int pZ) {
+		DynamicLight.tick(pCellularity, pX, pY, pZ, this);
+	}
+
+	@Override
 	public void recycle() {
 		recycle(this);
 	}
@@ -138,6 +113,11 @@ public final class TreeCell extends Cell {
 	@Override
 	public Cell cpy() {
 		return obtain();
+	}
+
+	@Override
+	public boolean isDynamicLightSource() {
+		return true;
 	}
 
 	@Override
@@ -172,18 +152,18 @@ public final class TreeCell extends Cell {
 
 	@Override
 	public boolean isSolid() {
-		return false;
+		return true;
 	}
 
 	@Override
 	public boolean isSquare() {
-		return false;
+		return true;
 	}
 
 	@Override
 	public boolean isTileConnected(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell,
 			int pVX, int pVY) {
-		return false;
+		return pCell instanceof LampCell;
 	}
 
 	@Override
@@ -199,52 +179,47 @@ public final class TreeCell extends Cell {
 	@Override
 	public boolean isConnected(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell,
 			int pVX, int pVY, int pVZ) {
-		return pVY == -1;
+		return true;
 	}
 
 	@Override
 	public boolean render(Cellularity pCellularity, int pX, int pY, int pZ, float pOffsetX,
-			float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight, float pCos,
-			float pSin, FloatArray[] pRenderBuffers) {
-		FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER_SAPLING];
-		GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX, pTileY,
-				pWidth, pHeight, pCos, pSin, renderBuffer, TILE_SAPLING_X, TILE_SAPLING_Y);
-		return TILE_SAPLING_TR;
+			float pOffsetY, int pTileX, int pTileY, float pSize, float pCos, float pSin,
+			FloatArray[] pRenderBuffers) {
+		FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER];
+		return GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
+				pTileY, pSize, pCos, pSin, renderBuffer, TILE_N_X, TILE_N_Y, TILE_S_X, TILE_S_Y,
+				TILE_H_X, TILE_H_Y, TILE_V_X, TILE_V_Y, TILE_B_X, TILE_B_Y, TILE_N_TR, TILE_S_TR,
+				TILE_H_TR, TILE_V_TR, TILE_B_TR);
 	}
 
 	// ===========================================================
 	// Methods
 	// ===========================================================
 
-	private static TreeCell obtainPure() {
+	private static LampCell obtainPure() {
 		if (GlobalConstants.POOL)
-			synchronized (TreeCell.class) {
-				return sPool.size() == 0 ? new TreeCell() : (TreeCell) sPool.pop();
+			synchronized (LampCell.class) {
+				return sPool.size() == 0 ? new LampCell() : (LampCell) sPool.pop();
 			}
-		return new TreeCell();
+		return new LampCell();
 	}
 
-	private static void recyclePure(TreeCell pObj) {
+	private static void recyclePure(LampCell pObj) {
 		if (GlobalConstants.POOL)
-			synchronized (TreeCell.class) {
+			synchronized (LampCell.class) {
 				sPool.push(pObj);
 			}
 	}
 
-	public static TreeCell obtain(int pTreeSize, int pLeavesSize) {
-		TreeCell obj = obtainPure();
-		obj.mTreeSize = pTreeSize;
-		obj.mLeavesSize = pLeavesSize;
+	public static LampCell obtain() {
+		LampCell obj = obtainPure();
 		obj.mPhysicsWallOrganoid = PhysicsWallOrganoid.obtain();
 		obj.mTilesConnectedMask = 0;
 		return obj;
 	}
 
-	public static TreeCell obtain() {
-		return obtain(0, 0);
-	}
-
-	public static void recycle(TreeCell pObj) {
+	public static void recycle(LampCell pObj) {
 		PhysicsWallOrganoid.recycle(pObj.mPhysicsWallOrganoid);
 		pObj.mPhysicsWallOrganoid = null;
 		recyclePure(pObj);

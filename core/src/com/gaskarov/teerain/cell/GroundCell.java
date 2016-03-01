@@ -171,13 +171,13 @@ public final class GroundCell extends Cell {
 
 	@Override
 	public boolean render(Cellularity pCellularity, int pX, int pY, int pZ, float pOffsetX,
-			float pOffsetY, int pTileX, int pTileY, float pWidth, float pHeight, float pCos,
-			float pSin, FloatArray[] pRenderBuffers) {
+			float pOffsetY, int pTileX, int pTileY, float pSize, float pCos, float pSin,
+			FloatArray[] pRenderBuffers) {
 		FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER];
 		return GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-				pTileY, pWidth, pHeight, pCos, pSin, renderBuffer, TILE_N_X, TILE_N_Y, TILE_S_X,
-				TILE_S_Y, TILE_H_X, TILE_H_Y, TILE_V_X, TILE_V_Y, TILE_B_X, TILE_B_Y, TILE_N_TR,
-				TILE_S_TR, TILE_H_TR, TILE_V_TR, TILE_B_TR);
+				pTileY, pSize, pCos, pSin, renderBuffer, TILE_N_X, TILE_N_Y, TILE_S_X, TILE_S_Y,
+				TILE_H_X, TILE_H_Y, TILE_V_X, TILE_V_Y, TILE_B_X, TILE_B_Y, TILE_N_TR, TILE_S_TR,
+				TILE_H_TR, TILE_V_TR, TILE_B_TR);
 	}
 
 	// ===========================================================

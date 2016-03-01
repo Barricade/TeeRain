@@ -78,7 +78,8 @@ public class DynamicLight {
 			int b = Settings.LIGHT_SOURCE[sourceId + 2];
 			int[] color = chunk.getLight(x, y, pZ);
 			if (color[0] < r || color[1] < g || color[2] < b)
-				chunk.setLight(x, y, pZ, r, g, b);
+				chunk.setLight(x, y, pZ, Math.max(r, color[0]), Math.max(g, color[1]), Math.max(b,
+						color[2]));
 		}
 	}
 	// ===========================================================

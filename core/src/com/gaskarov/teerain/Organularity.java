@@ -18,7 +18,6 @@ import com.gaskarov.teerain.util.TimeMeasure;
 import com.gaskarov.util.container.FloatArray;
 import com.gaskarov.util.container.IntArray;
 import com.gaskarov.util.container.LinkedHashTable;
-import com.gaskarov.util.container.List;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -176,13 +175,10 @@ public final class Organularity implements ContactListener {
 				+ "varying vec2 v_texCoords;\n" //
 				+ "\n" //
 				+ "void main() {\n" //
-				+ "  v_color = vec4(" + ShaderProgram.COLOR_ATTRIBUTE + ".xyz, 1.0);\n" //
-				// + "  v_color.a = v_color.a * (255.0/254.0);\n" //
+				+ "  v_color = " + ShaderProgram.COLOR_ATTRIBUTE + ";\n" //
+				+ "  v_color.a = v_color.a * (255.0/254.0);\n" //
 				+ "  v_texCoords = " + ShaderProgram.TEXCOORD_ATTRIBUTE + "0;\n" //
-				+ "  vec4 position = u_projTrans * " + ShaderProgram.POSITION_ATTRIBUTE + ";\n" //
-				+ "  float z = " + ShaderProgram.COLOR_ATTRIBUTE + ".a;\n" //
-				+ "  position.xy /= pow(" + Settings.DEPTH_FACTOR + ", z * 127.5);\n" //
-				+ "  gl_Position =  position;\n" //
+				+ "  gl_Position = u_projTrans * " + ShaderProgram.POSITION_ATTRIBUTE + ";\n" //
 				+ "}\n";
 		String fragmentShader = "#ifdef GL_ES\n" //
 				+ "#define LOWP lowp\n" //
@@ -239,9 +235,6 @@ public final class Organularity implements ContactListener {
 		TimeMeasure.sM8.start();
 		mWorld.step(Settings.TIME_STEP, Settings.VELOCITY_ITERATIONS, Settings.POSITION_ITERATIONS);
 		TimeMeasure.sM8.end();
-		for (List.Node i = mTissularities.begin(); i != mTissularities.end(); i =
-				mTissularities.next(i))
-			((Tissularity) mTissularities.val(i)).tick();
 	}
 
 	public void pushTissularity(Tissularity pTissularity) {

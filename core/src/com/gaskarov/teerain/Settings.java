@@ -59,7 +59,7 @@ public final class Settings {
 	public static final int MAX_DROP_SIZE = 1 << MAX_DROP_SIZE_LOG;
 	public static final int MAX_DROP_SIZE_MASK = MAX_DROP_SIZE - 1;
 	public static final int MAX_DROP_HSIZE = MAX_DROP_SIZE / 2;
-	public static final int MAX_DROP_DEPTH_LOG = 2;
+	public static final int MAX_DROP_DEPTH_LOG = CHUNK_DEPTH_LOG;
 	public static final int MAX_DROP_DEPTH = 1 << MAX_DROP_DEPTH_LOG;
 	public static final int MAX_DROP_DEPTH_MASK = MAX_DROP_DEPTH - 1;
 	public static final int MAX_DROP_MIN_DEPTH = 0;
@@ -116,6 +116,13 @@ public final class Settings {
 
 	public static final int NO_LIGHT_SOURCE_ID = 0;
 	public static final int LAMP_LIGHT_SOURCE_ID = 1;
+	public static final int RED_LAMP_LIGHT_SOURCE_ID = 2;
+	public static final int GREEN_LAMP_LIGHT_SOURCE_ID = 3;
+	public static final int BLUE_LAMP_LIGHT_SOURCE_ID = 4;
+	public static final int YELLOW_LAMP_LIGHT_SOURCE_ID = 5;
+	public static final int PURPLE_LAMP_LIGHT_SOURCE_ID = 6;
+	public static final int CYAN_LAMP_LIGHT_SOURCE_ID = 7;
+	public static final int TORCH_LAMP_LIGHT_SOURCE_ID = 8;
 
 	public static final int LIGHT_SOURCE_PADDING = 1;
 
@@ -127,7 +134,21 @@ public final class Settings {
 			// NO LIGHT
 			0, 0, 0, 0, //
 			// LAMP
-			256, 256, 256, 0 //
+			256, 256, 256, 0, //
+			// RED LAMP
+			256, 0, 0, 0, //
+			// GREEN LAMP
+			0, 256, 0, 0, //
+			// BLUE LAMP
+			0, 0, 256, 0, //
+			// YELLOW LAMP
+			256, 256, 0, 0, //
+			// PURPLE LAMP
+			256, 0, 256, 0, //
+			// CYAN LAMP
+			0, 256, 256, 0, //
+			// TORCH LAMP
+			192, 128, 96, 0 //
 			};
 
 	public static final int CELL_UPDATE_SIZE = 11;
@@ -135,8 +156,8 @@ public final class Settings {
 	public static final int[] CELL_UPDATE_Y = new int[] { -1, -1, -1, 0, 0, 0, 1, 1, 1, 0, 0 };
 	public static final int[] CELL_UPDATE_Z = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1 };
 
-	public static final int VISITOR_HEIGHT = 32;
-	public static final int VISITOR_WIDTH = 32;
+	public static final int VISITOR_HEIGHT = 40;
+	public static final int VISITOR_WIDTH = 40;
 
 	public static final int SPRITE_BATCH_SIZE = 5460;
 	public static final float TILE_W = 1 / 16f;
@@ -145,13 +166,23 @@ public final class Settings {
 	public static final float TILE_HALF_H = TILE_H / 2;
 	public static final float TILE_QUARTER_W = TILE_W / 4;
 	public static final float TILE_QUARTER_H = TILE_H / 4;
-	public static final int[] DEPTH_TO_ALPHA = new int[] { 0, 2, 4, 6 };
+	public static final int[] DEPTH_TO_ALPHA = new int[] { 0, 2, 4, 6, 8, 10, 12, 14 };
 	public static final float DEPTH_FACTOR = 1.1f;
-	public static final float[] DEPTH_FACTORS = new float[] { 1f, DEPTH_FACTOR,
-			DEPTH_FACTOR * DEPTH_FACTOR, DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR };
-	public static final float TILE_RENDER = 2f / 24;// VISITOR_WIDTH *
-	// DEPTH_FACTORS[CHUNK_MAX_DEPTH];
+	public static final float[] DEPTH_FACTORS =
+			new float[] {
+					1f,
+					DEPTH_FACTOR,
+					DEPTH_FACTOR * DEPTH_FACTOR,
+					DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR,
+					DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR,
+					DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR,
+					DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR
+							* DEPTH_FACTOR,
+					DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR
+							* DEPTH_FACTOR * DEPTH_FACTOR };
+	public static final float TILE_RENDER = 2f / 30;
 	public static final boolean BOX2D_DEBUG_DRAW = false;
+	public static final float TILE_RENDER_HUD = 2f / 20;
 
 	public static final int LAYERS_PER_DEPTH = 4;
 	public static final int LAYERS = CHUNK_DEPTH * LAYERS_PER_DEPTH;

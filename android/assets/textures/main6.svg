@@ -15,8 +15,8 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.48.5 r10040"
-   sodipodi:docname="Новый документ 1.2015_08_16_20_51_49.0.svg"
-   inkscape:export-filename="C:\Users\777gr_000\Desktop\Новый документ 1.2015_08_16_20_51_49.0.png"
+   sodipodi:docname="main6.svg"
+   inkscape:export-filename="C:\Users\777gr_000\Dropbox\Workspace\TeeRain\android\assets\textures\main5.png"
    inkscape:export-xdpi="90"
    inkscape:export-ydpi="90">
   <defs
@@ -193,14 +193,6 @@
     </filter>
     <filter
        inkscape:collect="always"
-       id="filter5314">
-      <feGaussianBlur
-         inkscape:collect="always"
-         stdDeviation="0.775"
-         id="feGaussianBlur5316" />
-    </filter>
-    <filter
-       inkscape:collect="always"
        id="filter5439">
       <feGaussianBlur
          inkscape:collect="always"
@@ -215,11 +207,11 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.70710678"
-     inkscape:cx="165.83522"
-     inkscape:cy="1046.4244"
+     inkscape:zoom="1.4142135"
+     inkscape:cx="451.04024"
+     inkscape:cy="1009.2947"
      inkscape:document-units="px"
-     inkscape:current-layer="svg2"
+     inkscape:current-layer="layer1"
      showgrid="true"
      objecttolerance="4"
      gridtolerance="4"
@@ -412,7 +404,7 @@
          height="64"
          x="320"
          y="192"
-         ry="4" />
+         ry="0" />
       <use
          height="1024"
          width="1024"

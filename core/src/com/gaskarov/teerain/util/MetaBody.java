@@ -36,6 +36,9 @@ public final class MetaBody {
 	private static final Array sPool = Array.obtain();
 
 	private BodyDef mBodyDef;
+	private float mLastX;
+	private float mLastY;
+	private float mLastAngle;
 	private Body mBody;
 	private LinkedHashTable mFixtures;
 	private float mOffsetX;
@@ -99,6 +102,9 @@ public final class MetaBody {
 				BodyDefPool.obtain(pActive, pAllowSleep, pAngle, pAngularDamping, pAngularVelocity,
 						pAwake, pBullet, pFixedRotation, pGravityScale, pLinearDamping,
 						pLinearVelocityX, pLinearVelocityY, pPositionX, pPositionY, pType);
+		obj.mLastX = pPositionX;
+		obj.mLastY = pPositionY;
+		obj.mLastAngle = pAngle;
 		obj.mBody = null;
 		obj.mFixtures = LinkedHashTable.obtain();
 		obj.mOffsetX = 0;
@@ -147,6 +153,8 @@ public final class MetaBody {
 			return;
 		mBodyDef.position.x -= pX - mOffsetX;
 		mBodyDef.position.y -= pY - mOffsetY;
+		mLastX -= pX - mOffsetX;
+		mLastY -= pY - mOffsetY;
 		mOffsetX = pX;
 		mOffsetY = pY;
 	}
@@ -178,6 +186,12 @@ public final class MetaBody {
 			create(pWorld);
 	}
 
+	public void refreshLastPositions() {
+		mLastX = mBodyDef.position.x;
+		mLastY = mBodyDef.position.y;
+		mLastAngle = mBodyDef.angle;
+	}
+
 	public void refresh() {
 		if (mBody != null) {
 			mBodyDef.angle = mBody.getAngle();
@@ -203,6 +217,18 @@ public final class MetaBody {
 
 	public float getPositionY() {
 		return mBodyDef.position.y;
+	}
+
+	public float getLastPositionX() {
+		return mLastX;
+	}
+
+	public float getLastPositionY() {
+		return mLastY;
+	}
+
+	public float getLastAngle() {
+		return mLastAngle;
 	}
 
 	public float getMassCenterX() {

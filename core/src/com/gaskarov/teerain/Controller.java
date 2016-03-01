@@ -27,7 +27,6 @@ public final class Controller {
 
 	private static final Array sPool = Array.obtain();
 
-	private Tissularity mTissularity;
 	private int mControlMove;
 	private boolean mJump;
 
@@ -68,9 +67,8 @@ public final class Controller {
 			}
 	}
 
-	public static Controller obtain(Tissularity pTissularity) {
+	public static Controller obtain() {
 		Controller obj = obtainPure();
-		obj.mTissularity = pTissularity;
 		obj.mControlMove = 0;
 		obj.mJump = false;
 		for (int i = 0; i < obj.mPointersControlMove.length; ++i)
@@ -81,7 +79,6 @@ public final class Controller {
 	}
 
 	public static void recycle(Controller pObj) {
-		pObj.mTissularity = null;
 		recyclePure(pObj);
 	}
 
@@ -94,10 +91,18 @@ public final class Controller {
 		float c = (float) Math.cos(body.getAngle());
 		float s = (float) Math.sin(body.getAngle());
 		float offset = cellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
-		mTissularity.setCameraX(body.getOffsetX() + body.getPositionX() + (pX - offset + 0.5f) * c
-				- (pY - offset + 0.5f) * s);
-		mTissularity.setCameraY(body.getOffsetY() + body.getPositionY() + (pX - offset + 0.5f) * s
-				+ (pY - offset + 0.5f) * c);
+		Cellularity chunk = cellularity.isChunk() ? cellularity : cellularity.getChunk();
+		Tissularity tissularity = chunk.getTissularity();
+		tissularity.setCameraLastX(tissularity.getCameraX());
+		tissularity.setCameraLastY(tissularity.getCameraY());
+		float nextCameraX =
+				body.getOffsetX() + body.getPositionX() + (pX - offset + 0.5f) * c
+						- (pY - offset + 0.5f) * s;
+		float nextCameraY =
+				body.getOffsetY() + body.getPositionY() + (pX - offset + 0.5f) * s
+						+ (pY - offset + 0.5f) * c;
+		tissularity.setCameraX(nextCameraX);
+		tissularity.setCameraY(nextCameraY);
 	}
 
 	public void keyDown(int pKeycode) {

@@ -6,7 +6,6 @@ import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.FPSLogger;
 import com.gaskarov.teerain.tissularity.MainTissularity;
 import com.gaskarov.teerain.util.TimeMeasure;
-import com.gaskarov.util.common.MathUtils;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -81,20 +80,23 @@ public final class TeeRain extends ApplicationAdapter implements InputProcessor 
 	public void pause() {
 	}
 
+	// long timetime = 0;
+
 	@Override
 	public void render() {
 		mFPSLogger.log();
 		TimeMeasure.start2();
 		TimeMeasure.sM9.start();
 		synchronized (mOrganularity) {
-			TimeMeasure.sM11.start();
 			long curTime = System.currentTimeMillis();
 			float val = (curTime - mLastTime - mAccumulatedTime) / Settings.TIME_STEP_MILLIS;
-			int n = val < 1.0 ? MathUtils.ceil(val) : MathUtils.floor(val);
+			int n = (int) val;
+			n = 1;
 			for (int i = 0; i < n; ++i) {
 				TimeMeasure.start();
 				TimeMeasure.sM1.start();
 				mOrganularity.tick();
+				mMainTissularity.tick();
 				TimeMeasure.sM1.end();
 				TimeMeasure.end();
 				mAccumulatedTime += Settings.TIME_STEP_MILLIS;
@@ -102,14 +104,17 @@ public final class TeeRain extends ApplicationAdapter implements InputProcessor 
 				mAccumulatedTime -= millis;
 				mLastTime += millis;
 			}
-			TimeMeasure.sM11.end();
 			TimeMeasure.sM12.start();
-			mMainTissularity.render();
+			mMainTissularity.render((val - n) * Settings.TIME_STEP*0);
 			TimeMeasure.sM12.end();
 		}
 		TimeMeasure.sM9.end();
 		TimeMeasure.end2();
 		TimeMeasure.log();
+		// long ttt = System.currentTimeMillis();
+		// if ((ttt - timetime) > 20)
+		// Gdx.app.log("TAG", "" + (ttt - timetime));
+		// timetime = ttt;
 	}
 
 	@Override
@@ -122,65 +127,57 @@ public final class TeeRain extends ApplicationAdapter implements InputProcessor 
 	@Override
 	public boolean keyDown(int pKeycode) {
 		synchronized (mOrganularity) {
-			mMainTissularity.keyDown(pKeycode);
+			return mMainTissularity.keyDown(pKeycode);
 		}
-		return false;
 	}
 
 	@Override
 	public boolean keyUp(int pKeycode) {
 		synchronized (mOrganularity) {
-			mMainTissularity.keyUp(pKeycode);
+			return mMainTissularity.keyUp(pKeycode);
 		}
-		return false;
 	}
 
 	@Override
 	public boolean keyTyped(char pCharacter) {
 		synchronized (mOrganularity) {
-			mMainTissularity.keyTyped(pCharacter);
+			return mMainTissularity.keyTyped(pCharacter);
 		}
-		return false;
 	}
 
 	@Override
 	public boolean touchDown(int pScreenX, int pScreenY, int pPointer, int pButton) {
 		synchronized (mOrganularity) {
-			mMainTissularity.touchDown(pScreenX, pScreenY, pPointer, pButton);
+			return mMainTissularity.touchDown(pScreenX, pScreenY, pPointer, pButton);
 		}
-		return false;
 	}
 
 	@Override
 	public boolean touchUp(int pScreenX, int pScreenY, int pPointer, int pButton) {
 		synchronized (mOrganularity) {
-			mMainTissularity.touchUp(pScreenX, pScreenY, pPointer, pButton);
+			return mMainTissularity.touchUp(pScreenX, pScreenY, pPointer, pButton);
 		}
-		return false;
 	}
 
 	@Override
 	public boolean touchDragged(int pScreenX, int pScreenY, int pPointer) {
 		synchronized (mOrganularity) {
-			mMainTissularity.touchDragged(pScreenX, pScreenY, pPointer);
+			return mMainTissularity.touchDragged(pScreenX, pScreenY, pPointer);
 		}
-		return false;
 	}
 
 	@Override
 	public boolean mouseMoved(int pScreenX, int pScreenY) {
 		synchronized (mOrganularity) {
-			mMainTissularity.mouseMoved(pScreenX, pScreenY);
+			return mMainTissularity.mouseMoved(pScreenX, pScreenY);
 		}
-		return false;
 	}
 
 	@Override
 	public boolean scrolled(int pAmount) {
 		synchronized (mOrganularity) {
-			mMainTissularity.scrolled(pAmount);
+			return mMainTissularity.scrolled(pAmount);
 		}
-		return false;
 	}
 
 	// ===========================================================

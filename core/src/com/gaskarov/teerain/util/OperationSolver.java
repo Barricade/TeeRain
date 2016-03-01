@@ -33,7 +33,7 @@ public final class OperationSolver {
 		mFreeOperationThreads = Array.obtain();
 		for (int i = 0; i < pMaxThreads; ++i) {
 			OperationThread operationThread = new OperationThread(this);
-			// operationThread.setPriority(Thread.MIN_PRIORITY);
+			//operationThread.setPriority(Thread.MIN_PRIORITY);
 			operationThread.start();
 			mOperationThreads.push(operationThread);
 			mFreeOperationThreads.push(operationThread);
