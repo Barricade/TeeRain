@@ -93,6 +93,14 @@ public final class MathUtils {
 		return pX > 0 ? (int) pX + 1 : (int) pX;
 	}
 
+	public static long floorToLong(float pX) {
+		return pX > 0 ? (long) pX : (long) pX - 1;
+	}
+
+	public static long ceilToLong(float pX) {
+		return pX > 0 ? (long) pX + 1 : (long) pX;
+	}
+
 	public static int round(float pX) {
 		return floor(pX + 0.5f);
 	}

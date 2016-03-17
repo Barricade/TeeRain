@@ -57,7 +57,7 @@ public class TimeMeasure {
 	// Methods
 	// ===========================================================
 
-	public static void log() {
+	public static synchronized void log() {
 		long cur = System.currentTimeMillis();
 		if (cur - sLast >= 10000) {
 			sLast = cur;
@@ -81,7 +81,7 @@ public class TimeMeasure {
 		}
 	}
 
-	public static void start() {
+	public static synchronized void start() {
 		sM1.globalStart();
 		sM2.globalStart();
 		sM3.globalStart();
@@ -92,7 +92,7 @@ public class TimeMeasure {
 		sM8.globalStart();
 	}
 
-	public static void end() {
+	public static synchronized void end() {
 		sM1.globalEnd();
 		sM2.globalEnd();
 		sM3.globalEnd();
@@ -103,7 +103,7 @@ public class TimeMeasure {
 		sM8.globalEnd();
 	}
 
-	public static void start2() {
+	public static synchronized void start2() {
 		sM9.globalStart();
 		sM10.globalStart();
 		sM11.globalStart();
@@ -114,7 +114,7 @@ public class TimeMeasure {
 		sM16.globalStart();
 	}
 
-	public static void end2() {
+	public static synchronized void end2() {
 		sM9.globalEnd();
 		sM10.globalEnd();
 		sM11.globalEnd();
@@ -151,18 +151,23 @@ public class TimeMeasure {
 		}
 
 		public void start() {
-			if (Thread.currentThread().getId() == TimeMeasure.sMainThreadId)
+			// if (Thread.currentThread().getId() == TimeMeasure.sMainThreadId)
+			synchronized (TimeMeasure.class) {
 				mStart = System.nanoTime();
+			}
 		}
 
 		public void end() {
-			if (Thread.currentThread().getId() == TimeMeasure.sMainThreadId) {
+			// if (Thread.currentThread().getId() == TimeMeasure.sMainThreadId)
+			// {
+			synchronized (TimeMeasure.class) {
 				long cur = System.nanoTime() - mStart;
 				mMax = Math.max(mMax, cur);
 				mMin = Math.min(mMin, cur);
 				++mNum;
 				mTime += cur;
 			}
+			// }
 		}
 
 		public void globalStart() {

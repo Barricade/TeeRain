@@ -67,14 +67,17 @@ public final class Array {
 			}
 	}
 
-	public static Array obtain() {
-
+	public static Array obtain(int pCapacity) {
 		Array obj = obtainPure();
 
 		obj.mSize = 0;
-		obj.mData = BinaryObjectArrayPool.ZERO_SIZE_ARRAY;
+		obj.mData = BinaryObjectArrayPool.obtain(pCapacity);
 
 		return obj;
+	}
+
+	public static Array obtain() {
+		return obtain(0);
 	}
 
 	public static void recycle(Array pObj) {
@@ -115,6 +118,18 @@ public final class Array {
 
 	public void clear() {
 		mSize = 0;
+	}
+
+	public void clear(int pCapacity) {
+		mSize = 0;
+		if (mData.length != pCapacity) {
+			BinaryObjectArrayPool.recycle(mData);
+			mData = BinaryObjectArrayPool.obtain(pCapacity);
+		}
+	}
+
+	public Object[] data() {
+		return mData;
 	}
 
 	// ===========================================================

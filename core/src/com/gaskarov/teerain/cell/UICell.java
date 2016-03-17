@@ -6,7 +6,6 @@ import com.gaskarov.teerain.util.GraphicsUtils;
 import com.gaskarov.util.constants.ArrayConstants;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
-import com.gaskarov.util.container.FloatArray;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -30,11 +29,6 @@ public final class UICell extends Cell {
 	public static final float TILE_V_Y = Settings.TILE_H * 5;
 	public static final float TILE_B_X = Settings.TILE_W * 4;
 	public static final float TILE_B_Y = Settings.TILE_H * 5;
-	public static final boolean TILE_N_TR = true;
-	public static final boolean TILE_S_TR = true;
-	public static final boolean TILE_H_TR = true;
-	public static final boolean TILE_V_TR = true;
-	public static final boolean TILE_B_TR = true;
 
 	public static final int LAYER = 0;
 
@@ -107,14 +101,21 @@ public final class UICell extends Cell {
 	}
 
 	@Override
-	public boolean render(Cellularity pCellularity, int pX, int pY, int pZ, float pOffsetX,
-			float pOffsetY, int pTileX, int pTileY, float pSize, float pCos, float pSin,
-			FloatArray[] pRenderBuffers) {
-		FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER];
-		return GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-				pTileY, pSize, pCos, pSin, renderBuffer, TILE_N_X, TILE_N_Y, TILE_S_X, TILE_S_Y,
-				TILE_H_X, TILE_H_Y, TILE_V_X, TILE_V_Y, TILE_B_X, TILE_B_Y, TILE_N_TR, TILE_S_TR,
-				TILE_H_TR, TILE_V_TR, TILE_B_TR);
+	public void render(Cellularity pCellularity, int pX, int pY, int pZ) {
+		for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i)
+			switch (i) {
+			case LAYER: {
+				int count =
+						GraphicsUtils.render(this, pCellularity, pX, pY, pZ, TILE_N_X, TILE_N_Y,
+								TILE_S_X, TILE_S_Y, TILE_H_X, TILE_H_Y, TILE_V_X, TILE_V_Y,
+								TILE_B_X, TILE_B_Y);
+				GraphicsUtils.count(pCellularity, count);
+				break;
+			}
+			default:
+				GraphicsUtils.count(pCellularity, 0);
+				break;
+			}
 	}
 
 	// ===========================================================

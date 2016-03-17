@@ -93,8 +93,6 @@ public final class Controller {
 		float offset = cellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
 		Cellularity chunk = cellularity.isChunk() ? cellularity : cellularity.getChunk();
 		Tissularity tissularity = chunk.getTissularity();
-		tissularity.setCameraLastX(tissularity.getCameraX());
-		tissularity.setCameraLastY(tissularity.getCameraY());
 		float nextCameraX =
 				body.getOffsetX() + body.getPositionX() + (pX - offset + 0.5f) * c
 						- (pY - offset + 0.5f) * s;

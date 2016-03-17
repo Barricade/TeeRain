@@ -1,7 +1,8 @@
 package com.gaskarov.teerain.cell;
 
+import com.gaskarov.teerain.Settings;
 import com.gaskarov.teerain.cellularity.Cellularity;
-import com.gaskarov.util.container.FloatArray;
+import com.gaskarov.teerain.util.GraphicsUtils;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -61,10 +62,13 @@ public abstract class Cell {
 	public void tick(Cellularity pCellularity, int pX, int pY, int pZ) {
 	}
 
-	public boolean render(Cellularity pCellularity, int pX, int pY, int pZ, float pOffsetX,
-			float pOffsetY, int pTileX, int pTileY, float pSize, float pCos, float pSin,
-			FloatArray[] pRenderBuffers) {
-		return true;
+	public void render(Cellularity pCellularity, int pX, int pY, int pZ) {
+		for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i)
+			switch (i) {
+			default:
+				GraphicsUtils.count(pCellularity, 0);
+				break;
+			}
 	}
 
 	public boolean isDroppable(Cellularity pCellularity, int pX, int pY, int pZ) {

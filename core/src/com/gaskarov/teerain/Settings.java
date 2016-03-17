@@ -24,6 +24,7 @@ public final class Settings {
 	public static final int MAX_CENTER_OFFSET = 1024;
 	public static final int STEPS_PER_TICK = 2;
 	public static final long WAIT_LOOP_DELAY = 1;
+	public static final long RENDER_DELAY = 30;
 
 	public static final float GRAVITY_X = 0.0f;
 	public static final float GRAVITY_Y = -40.0f;

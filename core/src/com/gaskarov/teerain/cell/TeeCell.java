@@ -10,7 +10,6 @@ import com.gaskarov.teerain.util.GraphicsUtils;
 import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
-import com.gaskarov.util.container.FloatArray;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -108,6 +107,7 @@ public final class TeeCell extends Cell {
 		DynamicLight.tick(pCellularity, pX, pY, pZ, this);
 		mControlOrganoid.tick(pCellularity, pX, pY, pZ, this);
 		mVisitorOrganoid.tick(pCellularity, pX, pY, pZ, this);
+		pCellularity.invalidateRender(pX, pY, pZ);
 	}
 
 	@Override
@@ -183,81 +183,86 @@ public final class TeeCell extends Cell {
 	}
 
 	@Override
-	public boolean render(Cellularity pCellularity, int pX, int pY, int pZ, float pOffsetX,
-			float pOffsetY, int pTileX, int pTileY, float pSize, float pCos, float pSin,
-			FloatArray[] pRenderBuffers) {
-		{
-			FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER_BODY];
-			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pSize, pCos, pSin, renderBuffer, TILE_X, TILE_Y);
-		}
-		{
-			FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER_FRONT];
-			float eyesW = 0.5f;
-			float eyesH = 0.25f;
-			float eyesX = 0.5f + mControlOrganoid.getEyesX() / 8;
-			float eyesY = 0.5f + mControlOrganoid.getEyesY() / 8;
-			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pSize, pCos, pSin, renderBuffer, TILE_EYES_X, TILE_EYES_Y,
-					Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, eyesX, eyesY, eyesW, eyesH, 1f,
-					0f);
-		}
-		{
-			float footX, footY, footR;
-			float steps = mControlOrganoid.getSteps();
-			if (mControlOrganoid.isGrounded()) {
-				footX = getFootPositionX(steps);
-				footY = getFootPositionY(steps);
-				footR = getFootPositionR(steps);
-			} else {
-				if (steps > Math.PI) {
-					footX = -0.25f + 0.5f;
-					footY = 0.125f;
-					footR = (float) Math.PI / 10;
-				} else {
-					footX = 0.25f + 0.5f;
-					footY = 0.125f;
-					footR = (float) -Math.PI / 10;
-				}
+	public void render(Cellularity pCellularity, int pX, int pY, int pZ) {
+		for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i)
+			switch (i) {
+			case LAYER_BODY: {
+				int count = GraphicsUtils.render(this, pCellularity, pX, pY, pZ, TILE_X, TILE_Y);
+				GraphicsUtils.count(pCellularity, count);
+				break;
 			}
+			case LAYER_FRONT: {
+				float eyesW = 0.5f;
+				float eyesH = 0.25f;
+				float eyesX = 0.5f + mControlOrganoid.getEyesX() / 8;
+				float eyesY = 0.5f + mControlOrganoid.getEyesY() / 8;
+				int count =
+						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, TILE_EYES_X,
+								TILE_EYES_Y, Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, eyesX,
+								eyesY, eyesW, eyesH, 1f, 0f);
 
-			FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER_FRONT];
-			float footW = 0.5f;
-			float footH = 0.25f;
-			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pSize, pCos, pSin, renderBuffer, TILE_FOOT_X, TILE_FOOT_Y,
-					Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX, footY, footW, footH,
-					(float) Math.cos(footR), (float) Math.sin(footR));
-		}
-		{
-			float footX, footY, footR;
-			float steps = mControlOrganoid.getSteps();
-			if (mControlOrganoid.isGrounded()) {
-				float tmp = MathUtils.mod(steps + (float) Math.PI, (float) Math.PI * 2);
-				footX = getFootPositionX(tmp);
-				footY = getFootPositionY(tmp);
-				footR = getFootPositionR(tmp);
-			} else {
-				if (steps > Math.PI) {
-					footX = 0.25f + 0.5f;
-					footY = 0.125f;
-					footR = (float) Math.PI / 10;
+				float footX, footY, footR;
+				float steps = mControlOrganoid.getSteps();
+				if (mControlOrganoid.isGrounded()) {
+					footX = getFootPositionX(steps);
+					footY = getFootPositionY(steps);
+					footR = getFootPositionR(steps);
 				} else {
-					footX = -0.25f + 0.5f;
-					footY = 0.125f;
-					footR = (float) -Math.PI / 10;
+					if (steps > Math.PI) {
+						footX = -0.25f + 0.5f;
+						footY = 0.125f;
+						footR = (float) Math.PI / 10;
+					} else {
+						footX = 0.25f + 0.5f;
+						footY = 0.125f;
+						footR = (float) -Math.PI / 10;
+					}
 				}
-			}
 
-			FloatArray renderBuffer = pRenderBuffers[Settings.LAYERS_PER_DEPTH * pZ + LAYER_BACK];
-			float footW = 0.5f;
-			float footH = 0.25f;
-			GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pOffsetX, pOffsetY, pTileX,
-					pTileY, pSize, pCos, pSin, renderBuffer, TILE_FOOT_X, TILE_FOOT_Y,
-					Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX, footY, footW, footH,
-					(float) Math.cos(footR), (float) Math.sin(footR));
-		}
-		return TILE_TR;
+				float footW = 0.5f;
+				float footH = 0.25f;
+				count +=
+						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, TILE_FOOT_X,
+								TILE_FOOT_Y, Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX,
+								footY, footW, footH, (float) Math.cos(footR), (float) Math
+										.sin(footR));
+				GraphicsUtils.count(pCellularity, count);
+				break;
+			}
+			case LAYER_BACK: {
+				float footX, footY, footR;
+				float steps = mControlOrganoid.getSteps();
+				if (mControlOrganoid.isGrounded()) {
+					float tmp = MathUtils.mod(steps + (float) Math.PI, (float) Math.PI * 2);
+					footX = getFootPositionX(tmp);
+					footY = getFootPositionY(tmp);
+					footR = getFootPositionR(tmp);
+				} else {
+					if (steps > Math.PI) {
+						footX = 0.25f + 0.5f;
+						footY = 0.125f;
+						footR = (float) Math.PI / 10;
+					} else {
+						footX = -0.25f + 0.5f;
+						footY = 0.125f;
+						footR = (float) -Math.PI / 10;
+					}
+				}
+
+				float footW = 0.5f;
+				float footH = 0.25f;
+				int count =
+						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, TILE_FOOT_X,
+								TILE_FOOT_Y, Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX,
+								footY, footW, footH, (float) Math.cos(footR), (float) Math
+										.sin(footR));
+				GraphicsUtils.count(pCellularity, count);
+				break;
+			}
+			default:
+				GraphicsUtils.count(pCellularity, 0);
+				break;
+			}
 	}
 
 	// ===========================================================

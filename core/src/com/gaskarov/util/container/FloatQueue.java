@@ -1,6 +1,5 @@
 package com.gaskarov.util.container;
 
-import com.gaskarov.util.common.ArrayUtils;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.pool.BinaryFloatArrayPool;
 
@@ -10,7 +9,7 @@ import com.gaskarov.util.pool.BinaryFloatArrayPool;
  * 
  * @author Ayrat Gaskarov
  */
-public final class FloatArray {
+public final class FloatQueue {
 
 	// ===========================================================
 	// Constants
@@ -23,13 +22,14 @@ public final class FloatArray {
 	private static final Array sPool = Array.obtain();
 
 	private float[] mData;
-	private int mSize;
+	private int mHead;
+	private int mTail;
 
 	// ===========================================================
 	// Constructors
 	// ===========================================================
 
-	private FloatArray() {
+	private FloatQueue() {
 	}
 
 	// ===========================================================
@@ -44,103 +44,102 @@ public final class FloatArray {
 	// Methods
 	// ===========================================================
 
-	private static FloatArray obtainPure() {
+	private static FloatQueue obtainPure() {
 		if (GlobalConstants.POOL)
-			synchronized (FloatArray.class) {
-				return sPool.size() == 0 ? new FloatArray() : (FloatArray) sPool.pop();
+			synchronized (FloatQueue.class) {
+				return sPool.size() == 0 ? new FloatQueue() : (FloatQueue) sPool.pop();
 			}
-		return new FloatArray();
+		return new FloatQueue();
 	}
 
-	private static void recyclePure(FloatArray pObj) {
+	private static void recyclePure(FloatQueue pObj) {
 		if (GlobalConstants.POOL)
-			synchronized (FloatArray.class) {
+			synchronized (FloatQueue.class) {
 				sPool.push(pObj);
 			}
 	}
 
-	public static FloatArray obtain(int pCapacity) {
+	public static FloatQueue obtain(int pCapacity) {
 
-		FloatArray obj = obtainPure();
+		FloatQueue obj = obtainPure();
 
-		obj.mSize = 0;
 		obj.mData = BinaryFloatArrayPool.obtain(pCapacity);
+		obj.mHead = obj.mTail = 0;
 
 		return obj;
 	}
 
-	public static FloatArray obtain() {
+	public static FloatQueue obtain() {
 		return obtain(0);
 	}
 
-	public static void recycle(FloatArray pObj) {
+	public static void recycle(FloatQueue pObj) {
 		BinaryFloatArrayPool.recycle(pObj.mData);
 		pObj.mData = null;
 		recyclePure(pObj);
 	}
 
 	public int size() {
-		return mSize;
+		return mHead - mTail & mData.length - 1;
 	}
 
 	public float get(int pId) {
-		return mData[pId];
+		return mData[mTail + pId & mData.length - 1];
 	}
 
-	public void set(int pId, float pVal) {
-		mData[pId] = pVal;
+	public void set(int pId, float pObj) {
+		mData[mTail + pId & mData.length - 1] = pObj;
 	}
 
-	public float back() {
-		return mData[mSize - 1];
-	}
-
-	public void push(float pVal) {
-		while (mSize == mData.length) {
-			float[] oldPool = mData;
-			mData = ArrayUtils.copyOf(oldPool, oldPool.length == 0 ? 1 : oldPool.length << 1);
-			BinaryFloatArrayPool.recycle(oldPool);
-		}
-		mData[mSize++] = pVal;
-	}
-
-	public void pushArray(int pN) {
-		mSize += pN;
-		while (mSize > mData.length) {
-			float[] oldPool = mData;
-			mData = ArrayUtils.copyOf(oldPool, oldPool.length == 0 ? 1 : oldPool.length << 1);
-			BinaryFloatArrayPool.recycle(oldPool);
-		}
-	}
-
-	public void pushArray(FloatArray pArray) {
-		int size = mSize;
-		pushArray(pArray.mSize);
-		System.arraycopy(pArray.mData, 0, mData, size, pArray.mSize);
+	public void push(float pObj) {
+		resize();
+		mData[mHead] = pObj;
+		mHead = mHead + 1 & mData.length - 1;
 	}
 
 	public float pop() {
-		return mData[--mSize];
+		float obj = mData[mHead];
+		mHead = mHead - 1 & mData.length - 1;
+		return obj;
 	}
 
-	public void popArray(int pN) {
-		mSize -= pN;
+	public void unshift(float pObj) {
+		resize();
+		mTail = mTail - 1 & mData.length - 1;
+		mData[mTail] = pObj;
+	}
+
+	public float shift() {
+		float obj = mData[mTail];
+		mTail = mTail + 1 & mData.length - 1;
+		return obj;
 	}
 
 	public void clear() {
-		mSize = 0;
+		mTail = mHead;
 	}
 
 	public void clear(int pCapacity) {
-		mSize = 0;
+		this.mTail = this.mHead = 0;
 		if (mData.length != pCapacity) {
 			BinaryFloatArrayPool.recycle(mData);
 			mData = BinaryFloatArrayPool.obtain(pCapacity);
 		}
 	}
 
-	public float[] data() {
-		return mData;
+	private void resize() {
+		if (size() < mData.length - 1)
+			return;
+		float[] a = BinaryFloatArrayPool.obtain(mData.length == 0 ? 2 : mData.length * 2);
+		if (mTail <= mHead) {
+			System.arraycopy(mData, mTail, a, mTail, mHead - mTail);
+		} else {
+			System.arraycopy(mData, 0, a, 0, mHead);
+			System.arraycopy(mData, mTail, a, mData.length + mTail, mData.length - mTail);
+			mTail += mData.length;
+		}
+		BinaryFloatArrayPool.recycle(mData);
+		mData = a;
 	}
 
 	// ===========================================================

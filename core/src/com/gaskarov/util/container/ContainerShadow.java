@@ -10,7 +10,7 @@ import com.gaskarov.util.pool.BinaryIntArrayPool;
  * 
  * @author Ayrat Gaskarov
  */
-public final class IntArray {
+public final class ContainerShadow {
 
 	// ===========================================================
 	// Constants
@@ -22,14 +22,15 @@ public final class IntArray {
 
 	private static final Array sPool = Array.obtain();
 
-	private int[] mData;
 	private int mSize;
+	private int[] mFree;
+	private int mFreeSize;
 
 	// ===========================================================
 	// Constructors
 	// ===========================================================
 
-	private IntArray() {
+	private ContainerShadow() {
 	}
 
 	// ===========================================================
@@ -44,38 +45,39 @@ public final class IntArray {
 	// Methods
 	// ===========================================================
 
-	private static IntArray obtainPure() {
+	private static ContainerShadow obtainPure() {
 		if (GlobalConstants.POOL)
-			synchronized (IntArray.class) {
-				return sPool.size() == 0 ? new IntArray() : (IntArray) sPool.pop();
+			synchronized (ContainerShadow.class) {
+				return sPool.size() == 0 ? new ContainerShadow() : (ContainerShadow) sPool.pop();
 			}
-		return new IntArray();
+		return new ContainerShadow();
 	}
 
-	private static void recyclePure(IntArray pObj) {
+	private static void recyclePure(ContainerShadow pObj) {
 		if (GlobalConstants.POOL)
-			synchronized (IntArray.class) {
+			synchronized (ContainerShadow.class) {
 				sPool.push(pObj);
 			}
 	}
 
-	public static IntArray obtain(int pCapacity) {
+	public static ContainerShadow obtain(int pCapacity) {
 
-		IntArray obj = obtainPure();
+		ContainerShadow obj = obtainPure();
 
 		obj.mSize = 0;
-		obj.mData = BinaryIntArrayPool.obtain(pCapacity);
+		obj.mFree = BinaryIntArrayPool.obtain(pCapacity);
+		obj.mFreeSize = 0;
 
 		return obj;
 	}
 
-	public static IntArray obtain() {
+	public static ContainerShadow obtain() {
 		return obtain(0);
 	}
 
-	public static void recycle(IntArray pObj) {
-		BinaryIntArrayPool.recycle(pObj.mData);
-		pObj.mData = null;
+	public static void recycle(ContainerShadow pObj) {
+		BinaryIntArrayPool.recycle(pObj.mFree);
+		pObj.mFree = null;
 		recyclePure(pObj);
 	}
 
@@ -83,45 +85,36 @@ public final class IntArray {
 		return mSize;
 	}
 
-	public int get(int pId) {
-		return mData[pId];
-	}
-
-	public void set(int pId, int pVal) {
-		mData[pId] = pVal;
-	}
-
-	public int back() {
-		return mData[mSize - 1];
-	}
-
-	public void push(int pVal) {
-		while (mSize == mData.length) {
-			int[] oldPool = mData;
-			mData = ArrayUtils.copyOf(oldPool, oldPool.length == 0 ? 1 : oldPool.length << 1);
-			BinaryIntArrayPool.recycle(oldPool);
+	public int push() {
+		if (mFreeSize == 0 && mSize == mFree.length) {
+			int oldCapacity = mFree.length;
+			int capacity = oldCapacity == 0 ? 1 : oldCapacity << 1;
+			int[] oldFree = mFree;
+			mFree = ArrayUtils.copyOf(oldFree, capacity);
+			BinaryIntArrayPool.recycle(oldFree);
 		}
-		mData[mSize++] = pVal;
+		int key = mFreeSize == 0 ? mSize : mFree[--mFreeSize];
+		++mSize;
+		return key;
 	}
 
-	public int pop() {
-		return mData[--mSize];
+	public void remove(int pKey) {
+		--mSize;
+		mFree[mFreeSize++] = pKey;
 	}
 
 	public void clear() {
+		mFreeSize = 0;
 		mSize = 0;
 	}
 
 	public void clear(int pCapacity) {
-		mSize = 0;
-		if (mData.length != pCapacity) {
-			BinaryIntArrayPool.recycle(mData);
-			mData = BinaryIntArrayPool.obtain(pCapacity);
+		if (mFree.length != pCapacity) {
+			BinaryIntArrayPool.recycle(mFree);
+			mFree = BinaryIntArrayPool.obtain(pCapacity);
 		}
-	}
-
-	public int[] data() {
-		return mData;
+		mFreeSize = 0;
+		mSize = 0;
 	}
 
 	// ===========================================================

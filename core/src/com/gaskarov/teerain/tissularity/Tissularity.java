@@ -7,12 +7,12 @@ import com.gaskarov.teerain.Settings;
 import com.gaskarov.teerain.cellularity.Cellularity;
 import com.gaskarov.teerain.organoid.ControlOrganoid;
 import com.gaskarov.teerain.organoid.VisitorOrganoid;
+import com.gaskarov.teerain.util.GraphicsModule;
 import com.gaskarov.teerain.util.TimeMeasure;
 import com.gaskarov.util.common.IntVector1;
 import com.gaskarov.util.common.IntVector2;
 import com.gaskarov.util.common.IntVector3;
 import com.gaskarov.util.common.KeyValuePair;
-import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.common.Pair;
 import com.gaskarov.util.constants.ArrayConstants;
 import com.gaskarov.util.constants.GlobalConstants;
@@ -53,12 +53,12 @@ public abstract class Tissularity {
 
 	protected float mCameraX;
 	protected float mCameraY;
-	protected float mCameraLastX;
-	protected float mCameraLastY;
 
 	protected int mStepsLeft;
 
 	protected LinkedHashTable mVisitors;
+
+	protected GraphicsModule mGraphicsModule;
 
 	// ===========================================================
 	// Constructors
@@ -96,24 +96,12 @@ public abstract class Tissularity {
 		mCameraY = pCameraY;
 	}
 
-	public float getCameraLastX() {
-		return mCameraLastX;
-	}
-
-	public float getCameraLastY() {
-		return mCameraLastY;
-	}
-
-	public void setCameraLastX(float pCameraLastX) {
-		mCameraLastX = pCameraLastX;
-	}
-
-	public void setCameraLastY(float pCameraLastY) {
-		mCameraLastY = pCameraLastY;
-	}
-
 	public short getGroupIndexPackOffset() {
 		return mGroupIndexPackOffset;
+	}
+
+	public GraphicsModule getGraphicsModule() {
+		return mGraphicsModule;
 	}
 
 	// ===========================================================
@@ -127,18 +115,16 @@ public abstract class Tissularity {
 
 	protected abstract Runnable chunkUnloader(int pX, int pY, ChunkHolder pChunkHolder);
 
-	protected abstract int getHiddenCellsSize();
-
-	protected abstract boolean[][] getHiddenCells();
-
 	// ===========================================================
 	// Methods
 	// ===========================================================
 
-	public void attach(Organularity pOrganularity) {
+	public void attach(Organularity pOrganularity, long pUpdateLastTime,
+			float pUpdateAccumulatedTime) {
 		mOrganularity = pOrganularity;
 		mStepsLeft = Settings.STEPS_PER_TICK;
 		mGroupIndexPackOffset = mOrganularity.addGroupIndexPack();
+		mGraphicsModule.setTime(pUpdateLastTime, pUpdateAccumulatedTime);
 	}
 
 	public void detach() {
@@ -174,14 +160,15 @@ public abstract class Tissularity {
 					|| Math.abs(mOffsetY - y) > Settings.MAX_CENTER_OFFSET) {
 				mCameraX += mOffsetX - x;
 				mCameraY += mOffsetY - y;
-				mCameraLastX += mOffsetX - x;
-				mCameraLastY += mOffsetY - y;
 				mOffsetX = x;
 				mOffsetY = y;
+				mGraphicsModule.commandOffset(mOffsetX, mOffsetY);
 				for (List.Node i = mChunks.begin(); i != mChunks.end(); i = mChunks.next(i)) {
 					Cellularity chunk = ((ChunkHolder) ((KeyValuePair) mChunks.val(i)).mB).chunk();
-					if (chunk != null)
+					if (chunk != null) {
 						chunk.refreshOffset();
+						chunk.refreshRender();
+					}
 				}
 			}
 		}
@@ -230,9 +217,16 @@ public abstract class Tissularity {
 				chunk.refresh();
 		}
 		TimeMeasure.sM6.end();
+		for (List.Node i = mChunks.begin(); i != mChunks.end(); i = mChunks.next(i)) {
+			Cellularity chunk = ((ChunkHolder) ((KeyValuePair) mChunks.val(i)).mB).chunk();
+			if (chunk != null)
+				chunk.render();
+		}
+		mGraphicsModule.commandMoveCamera(0, 0, 0, mCameraX, mCameraY);
+		mGraphicsModule.commandsFlush();
 	}
 
-	public void render(float pDt) {
+	public void render(long pTime) {
 	}
 
 	public void resize(int pWidth, int pHeight) {
@@ -285,12 +279,12 @@ public abstract class Tissularity {
 
 		mCameraX = 0;
 		mCameraY = 0;
-		mCameraLastX = 0;
-		mCameraLastY = 0;
 
 		mStepsLeft = 0;
 
 		mVisitors = LinkedHashTable.obtain();
+
+		mGraphicsModule = GraphicsModule.obtain();
 	}
 
 	protected void dispose() {
@@ -305,6 +299,8 @@ public abstract class Tissularity {
 		mDelayedChunks = null;
 		LinkedHashTable.recycle(mVisitors);
 		mVisitors = null;
+		GraphicsModule.recycle(mGraphicsModule);
+		mGraphicsModule = null;
 	}
 
 	public void pushVisitor(VisitorOrganoid pVisitor, Cellularity pCellularity, int pX, int pY,
@@ -501,71 +497,14 @@ public abstract class Tissularity {
 		return pair != null ? ((ChunkHolder) pair.mB).chunk() : null;
 	}
 
-	protected void render(FloatArray[] pRenderBuffers, int pOffsetX, int pOffsetY, float pCameraX,
-			float pCameraY, float pCellSize, float pWidth, float pHeight, float pDt) {
+	protected void render(float pCellSize, float pWidth, float pHeight, long pTime) {
 
-		final int hiddenCellsSize = getHiddenCellsSize();
-		final boolean[][] hiddenCells = getHiddenCells();
-
-		for (int i = 0; i < hiddenCellsSize; ++i)
-			for (int j = 0; j < hiddenCellsSize; ++j)
-				hiddenCells[i][j] = true;
-
-		float depthFactor = Settings.DEPTH_FACTORS[Settings.CHUNK_MAX_DEPTH];
-		float depthWidth = pWidth * depthFactor;
-		float depthHeight = pHeight * depthFactor;
-		float left = pCameraX - depthWidth / 2;
-		float bottom = pCameraY - depthHeight / 2;
-
-		int extra = Settings.MAX_DROP_SIZE;
-
-		int col1 =
-				MathUtils.divFloor(pOffsetX + MathUtils.floor(left) - extra, Settings.CHUNK_SIZE);
-		int col2 =
-				MathUtils.divFloor(pOffsetX + MathUtils.ceil(left + depthWidth) + extra,
-						Settings.CHUNK_SIZE);
-
-		int row1 =
-				MathUtils.divFloor(pOffsetY + MathUtils.floor(bottom) - extra, Settings.CHUNK_SIZE);
-		int row2 =
-				MathUtils.divFloor(pOffsetY + MathUtils.ceil(bottom + depthHeight) + extra,
-						Settings.CHUNK_SIZE);
-
-		for (int row = row1; row <= row2; ++row)
-			for (int col = col1; col <= col2; ++col) {
-				Cellularity chunk = getChunk(col, row);
-				if (chunk != null) {
-					chunk.prerender();
-				}
-			}
-		for (int row = row1; row <= row2; ++row)
-			for (int col = col1; col <= col2; ++col) {
-				Cellularity chunk = getChunk(col, row);
-				if (chunk != null) {
-					LinkedHashTable dynamics = chunk.getCellularities();
-					for (List.Node i = dynamics.begin(); i != dynamics.end(); i = dynamics.next(i)) {
-						Cellularity cellularity = (Cellularity) dynamics.val(i);
-						cellularity.render(hiddenCells, hiddenCellsSize, pRenderBuffers, pOffsetX,
-								pOffsetY, pCameraX, pCameraY, pCellSize, col, row, pWidth, pHeight,
-								0, pDt);
-					}
-				}
-			}
-		for (int z = Settings.CHUNK_MIN_DEPTH; z <= Settings.CHUNK_MAX_DEPTH; ++z) {
-			for (int row = row1; row <= row2; ++row)
-				for (int col = col1; col <= col2; ++col) {
-					Cellularity chunk = getChunk(col, row);
-					if (chunk != null) {
-						chunk.render(hiddenCells, hiddenCellsSize, pRenderBuffers, pOffsetX,
-								pOffsetY, pCameraX, pCameraY, pCellSize, col, row, pWidth, pHeight,
-								z, pDt);
-					}
-				}
-		}
+		FloatArray[] renderBuffers = mOrganularity.getRenderBuffers();
+		mGraphicsModule.render(renderBuffers, pCellSize, pWidth, pHeight, pTime);
 
 		SpriteBatch spriteBatch = mOrganularity.getSpriteBatch();
 		for (int i = Settings.LAYERS - 1; i >= 0; --i) {
-			FloatArray renderBuffer = pRenderBuffers[i];
+			FloatArray renderBuffer = renderBuffers[i];
 			spriteBatch.draw(Resources.MAIN_TEXTURE, renderBuffer.data(), 0, renderBuffer.size());
 			renderBuffer.clear();
 		}

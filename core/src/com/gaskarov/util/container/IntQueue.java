@@ -1,6 +1,5 @@
 package com.gaskarov.util.container;
 
-import com.gaskarov.util.common.ArrayUtils;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.pool.BinaryIntArrayPool;
 
@@ -10,7 +9,7 @@ import com.gaskarov.util.pool.BinaryIntArrayPool;
  * 
  * @author Ayrat Gaskarov
  */
-public final class IntArray {
+public final class IntQueue {
 
 	// ===========================================================
 	// Constants
@@ -23,13 +22,14 @@ public final class IntArray {
 	private static final Array sPool = Array.obtain();
 
 	private int[] mData;
-	private int mSize;
+	private int mHead;
+	private int mTail;
 
 	// ===========================================================
 	// Constructors
 	// ===========================================================
 
-	private IntArray() {
+	private IntQueue() {
 	}
 
 	// ===========================================================
@@ -44,84 +44,102 @@ public final class IntArray {
 	// Methods
 	// ===========================================================
 
-	private static IntArray obtainPure() {
+	private static IntQueue obtainPure() {
 		if (GlobalConstants.POOL)
-			synchronized (IntArray.class) {
-				return sPool.size() == 0 ? new IntArray() : (IntArray) sPool.pop();
+			synchronized (IntQueue.class) {
+				return sPool.size() == 0 ? new IntQueue() : (IntQueue) sPool.pop();
 			}
-		return new IntArray();
+		return new IntQueue();
 	}
 
-	private static void recyclePure(IntArray pObj) {
+	private static void recyclePure(IntQueue pObj) {
 		if (GlobalConstants.POOL)
-			synchronized (IntArray.class) {
+			synchronized (IntQueue.class) {
 				sPool.push(pObj);
 			}
 	}
 
-	public static IntArray obtain(int pCapacity) {
+	public static IntQueue obtain(int pCapacity) {
 
-		IntArray obj = obtainPure();
+		IntQueue obj = obtainPure();
 
-		obj.mSize = 0;
 		obj.mData = BinaryIntArrayPool.obtain(pCapacity);
+		obj.mHead = obj.mTail = 0;
 
 		return obj;
 	}
 
-	public static IntArray obtain() {
+	public static IntQueue obtain() {
 		return obtain(0);
 	}
 
-	public static void recycle(IntArray pObj) {
+	public static void recycle(IntQueue pObj) {
 		BinaryIntArrayPool.recycle(pObj.mData);
 		pObj.mData = null;
 		recyclePure(pObj);
 	}
 
 	public int size() {
-		return mSize;
+		return mHead - mTail & mData.length - 1;
 	}
 
 	public int get(int pId) {
-		return mData[pId];
+		return mData[mTail + pId & mData.length - 1];
 	}
 
-	public void set(int pId, int pVal) {
-		mData[pId] = pVal;
+	public void set(int pId, int pObj) {
+		mData[mTail + pId & mData.length - 1] = pObj;
 	}
 
-	public int back() {
-		return mData[mSize - 1];
-	}
-
-	public void push(int pVal) {
-		while (mSize == mData.length) {
-			int[] oldPool = mData;
-			mData = ArrayUtils.copyOf(oldPool, oldPool.length == 0 ? 1 : oldPool.length << 1);
-			BinaryIntArrayPool.recycle(oldPool);
-		}
-		mData[mSize++] = pVal;
+	public void push(int pObj) {
+		resize();
+		mData[mHead] = pObj;
+		mHead = mHead + 1 & mData.length - 1;
 	}
 
 	public int pop() {
-		return mData[--mSize];
+		int obj = mData[mHead];
+		mHead = mHead - 1 & mData.length - 1;
+		return obj;
+	}
+
+	public void unshift(int pObj) {
+		resize();
+		mTail = mTail - 1 & mData.length - 1;
+		mData[mTail] = pObj;
+	}
+
+	public int shift() {
+		int obj = mData[mTail];
+		mTail = mTail + 1 & mData.length - 1;
+		return obj;
 	}
 
 	public void clear() {
-		mSize = 0;
+		mTail = mHead;
 	}
 
 	public void clear(int pCapacity) {
-		mSize = 0;
+		this.mTail = this.mHead = 0;
 		if (mData.length != pCapacity) {
 			BinaryIntArrayPool.recycle(mData);
 			mData = BinaryIntArrayPool.obtain(pCapacity);
 		}
 	}
 
-	public int[] data() {
-		return mData;
+	private void resize() {
+		if (size() < mData.length - 1)
+			return;
+		int[] a = BinaryIntArrayPool.obtain(mData.length == 0 ? 2 : mData.length * 2);
+		if (mTail <= mHead) {
+			System.arraycopy(mData, mTail, a, mTail, mHead - mTail);
+		} else {
+			System.arraycopy(mData, 0, a, 0, mHead);
+			System.arraycopy(mData, mTail, a, mData.length + mTail, mData.length - mTail);
+			mTail += mData.length;
+		}
+		BinaryIntArrayPool.recycle(mData);
+		mData = a;
 	}
 
 	// ===========================================================

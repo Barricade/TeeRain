@@ -59,14 +59,18 @@ public final class Queue {
 			}
 	}
 
-	public static Queue obtain() {
+	public static Queue obtain(int pCapacity) {
 
 		Queue obj = obtainPure();
 
-		obj.mData = BinaryObjectArrayPool.ZERO_SIZE_ARRAY;
+		obj.mData = BinaryObjectArrayPool.obtain(pCapacity);
 		obj.mHead = obj.mTail = 0;
 
 		return obj;
+	}
+
+	public static Queue obtain() {
+		return obtain(0);
 	}
 
 	public static void recycle(Queue pObj) {
@@ -113,6 +117,14 @@ public final class Queue {
 
 	public void clear() {
 		this.mTail = this.mHead;
+	}
+
+	public void clear(int pCapacity) {
+		this.mTail = this.mHead = 0;
+		if (mData.length != pCapacity) {
+			BinaryObjectArrayPool.recycle(mData);
+			mData = BinaryObjectArrayPool.obtain(pCapacity);
+		}
 	}
 
 	private void resize() {

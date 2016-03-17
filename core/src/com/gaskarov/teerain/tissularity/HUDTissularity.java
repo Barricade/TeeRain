@@ -12,7 +12,6 @@ import com.gaskarov.teerain.cellularity.Cellularity;
 import com.gaskarov.teerain.organoid.ControlOrganoid;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
-import com.gaskarov.util.container.FloatArray;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -26,8 +25,6 @@ public final class HUDTissularity extends Tissularity {
 	// Constants
 	// ===========================================================
 
-	public static final int HIDDEN_CELLS_SIZE = (int) (2 / Settings.TILE_RENDER) + 2;
-
 	// ===========================================================
 	// Fields
 	// ===========================================================
@@ -35,8 +32,6 @@ public final class HUDTissularity extends Tissularity {
 	private static final Array sPool = Array.obtain();
 
 	private Player mPlayer;
-
-	private final boolean[][] mHiddenCells = new boolean[HIDDEN_CELLS_SIZE][HIDDEN_CELLS_SIZE];
 
 	// ===========================================================
 	// Constructors
@@ -69,18 +64,9 @@ public final class HUDTissularity extends Tissularity {
 	}
 
 	@Override
-	public int getHiddenCellsSize() {
-		return HIDDEN_CELLS_SIZE;
-	}
-
-	@Override
-	public boolean[][] getHiddenCells() {
-		return mHiddenCells;
-	}
-
-	@Override
-	public void attach(Organularity pOrganularity) {
-		super.attach(pOrganularity);
+	public void attach(Organularity pOrganularity, long pUpdateLastTime,
+			float pUpdateAccumulatedTime) {
+		super.attach(pOrganularity, pUpdateLastTime, pUpdateAccumulatedTime);
 		addVisitor(0, 0, 2, 2);
 		waitChunks();
 	}
@@ -92,20 +78,10 @@ public final class HUDTissularity extends Tissularity {
 	}
 
 	@Override
-	public void render(float pDt) {
-
-		FloatArray[] renderBuffers = mOrganularity.getRenderBuffers();
+	public void render(long pTime) {
 		OrthographicCamera camera = mOrganularity.getCamera();
-		float timeRatio = pDt / Settings.TIME_STEP;
-		mCameraLastX = mCameraX = 5.0f - mOffsetX;
-		mCameraLastY =
-				mCameraY = 0.0f - mOffsetY + camera.viewportHeight / Settings.TILE_RENDER_HUD / 2;
-		float cameraX = mCameraX * timeRatio + mCameraLastX * (1f - timeRatio);
-		float cameraY = mCameraY * timeRatio + mCameraLastY * (1f - timeRatio);
-
-		render(renderBuffers, mOffsetX, mOffsetY, cameraX, cameraY, Settings.TILE_RENDER_HUD,
-				camera.viewportWidth / Settings.TILE_RENDER_HUD, camera.viewportHeight
-						/ Settings.TILE_RENDER_HUD, pDt);
+		render(Settings.TILE_RENDER_HUD, camera.viewportWidth / Settings.TILE_RENDER_HUD,
+				camera.viewportHeight / Settings.TILE_RENDER_HUD, pTime);
 	}
 
 	@Override
@@ -259,7 +235,6 @@ public final class HUDTissularity extends Tissularity {
 			chunk.postDrop();
 			chunk.refresh();
 			chunk.precalc(1);
-			chunk.prerender();
 
 			mChunkHolder.setChunk(chunk);
 

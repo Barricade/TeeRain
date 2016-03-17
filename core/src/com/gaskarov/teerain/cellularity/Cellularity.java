@@ -21,6 +21,7 @@ import static com.gaskarov.teerain.Settings.CHUNK_TOP;
 import static com.gaskarov.teerain.Settings.CHUNK_VOLUME;
 import static com.gaskarov.teerain.Settings.COLORS;
 import static com.gaskarov.teerain.Settings.COLORS_LOG;
+import static com.gaskarov.teerain.Settings.LIGHT_CORNERS_SIZE;
 import static com.gaskarov.teerain.Settings.LIGHT_CORNERS_SIZE_LOG;
 import static com.gaskarov.teerain.Settings.LIGHT_RESISTANCE;
 import static com.gaskarov.teerain.Settings.LIGHT_RESISTANCE_SIZE_LOG;
@@ -48,8 +49,8 @@ import com.gaskarov.teerain.cell.Cell;
 import com.gaskarov.teerain.cell.VacuumCell;
 import com.gaskarov.teerain.cell.VoidCell;
 import com.gaskarov.teerain.tissularity.Tissularity;
+import com.gaskarov.teerain.util.GraphicsModule;
 import com.gaskarov.teerain.util.MetaBody;
-import com.gaskarov.teerain.util.TimeMeasure;
 import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
@@ -86,6 +87,7 @@ public final class Cellularity {
 	private final LinkedIntTable mLightModifiedKeys = LinkedIntTable.obtain(CHUNK_VOLUME);
 	private final LinkedIntTable mLightUpdate = LinkedIntTable.obtain(CHUNK_VOLUME);
 	private final LinkedIntTable mLightRefresh = LinkedIntTable.obtain(CHUNK_VOLUME);
+	private final LinkedIntTable mLightRender = LinkedIntTable.obtain(CHUNK_VOLUME);
 
 	private final int[] mLightCorners = new int[CHUNK_VOLUME << LIGHT_CORNERS_SIZE_LOG];
 
@@ -99,6 +101,7 @@ public final class Cellularity {
 	private final LinkedIntTable mCellsModifiedKeys = LinkedIntTable.obtain(CHUNK_VOLUME);
 	private final LinkedIntTable mCellsUpdate = LinkedIntTable.obtain(CHUNK_VOLUME);
 	private final LinkedIntTable mCellsRefresh = LinkedIntTable.obtain(CHUNK_VOLUME);
+	private final LinkedIntTable mCellsRender = LinkedIntTable.obtain(CHUNK_VOLUME);
 
 	private final LinkedIntTable mCellsTick = LinkedIntTable.obtain(CHUNK_VOLUME);
 
@@ -120,6 +123,8 @@ public final class Cellularity {
 	private int mY;
 	private LinkedHashTable mCellularities;
 	private Cellularity mChunk;
+
+	private int mGraphicsModuleKey;
 
 	// ===========================================================
 	// Constructors
@@ -218,6 +223,7 @@ public final class Cellularity {
 		pObj.mLightModifiedKeys.clear();
 		pObj.mLightUpdate.clear();
 		pObj.mLightRefresh.clear();
+		pObj.mLightRender.clear();
 
 		while (pObj.mCellsModifiedKeys.size() > 0) {
 			int val = pObj.mCellsModifiedKeys.pop();
@@ -226,6 +232,7 @@ public final class Cellularity {
 		}
 		pObj.mCellsUpdate.clear();
 		pObj.mCellsRefresh.clear();
+		pObj.mCellsRender.clear();
 
 		pObj.mCellsTick.clear();
 
@@ -366,9 +373,11 @@ public final class Cellularity {
 					final int val = getVal(x & CHUNK_SIZE_MASK, y & CHUNK_SIZE_MASK, z);
 					chunk.mLightUpdate.set(val);
 					chunk.mLightRefresh.set(val);
+					chunk.mLightRender.set(val);
 					if (chunk.mLightSensor[val] == 1) {
 						chunk.mCellsUpdate.set(val);
 						chunk.mCellsRefresh.set(val);
+						chunk.mCellsRender.set(val);
 					}
 				}
 			}
@@ -390,6 +399,7 @@ public final class Cellularity {
 					final int val = getVal(x & CHUNK_SIZE_MASK, y & CHUNK_SIZE_MASK, z);
 					chunk.mCellsUpdate.set(val);
 					chunk.mCellsRefresh.set(val);
+					chunk.mCellsRender.set(val);
 					chunk.mLightUpdate.set(val);
 				}
 			}
@@ -405,16 +415,6 @@ public final class Cellularity {
 				mCellularities.next(i))
 			((Cellularity) mCellularities.val(i)).refresh();
 
-		while (mCellsRefresh.size() > 0) {
-			final int val = mCellsRefresh.pop();
-			final int x = getValX(val);
-			final int y = getValY(val);
-			final int z = getValZ(val);
-			getCellHelper(x, y, z).refresh(this, x, y, z);
-		}
-	}
-
-	public void prerender() {
 		final int[] light = mTmpLightAround;
 		while (mLightRefresh.size() > 0) {
 			final int val0 = mLightRefresh.pop();
@@ -466,6 +466,55 @@ public final class Cellularity {
 					Math.min(g, Math.min(light[25], Math.min(light[29], light[1])));
 			mLightCorners[cornerId + 14] =
 					Math.min(b, Math.min(light[26], Math.min(light[30], light[2])));
+		}
+
+		while (mCellsRefresh.size() > 0) {
+			final int val = mCellsRefresh.pop();
+			final int x = getValX(val);
+			final int y = getValY(val);
+			final int z = getValZ(val);
+			getCellHelper(x, y, z).refresh(this, x, y, z);
+		}
+	}
+
+	public void render() {
+		for (List.Node i = mCellularities.begin(); i != mCellularities.end(); i =
+				mCellularities.next(i))
+			((Cellularity) mCellularities.val(i)).render();
+
+		Cellularity chunk = isChunk() ? this : mChunk;
+		Tissularity tissularity = chunk.mTissularity;
+
+		GraphicsModule graphicsModule = tissularity.getGraphicsModule();
+		if (isChunk()) {
+			for (List.Node j = mCellularities.begin(); j != mCellularities.end(); j =
+					mCellularities.next(j)) {
+				Cellularity cellularity = (Cellularity) mCellularities.val(j);
+				graphicsModule.commandMoveDynamic(cellularity.mGraphicsModuleKey,
+						cellularity.mMetaBody.getWorldPositionX(), cellularity.mMetaBody
+								.getWorldPositionY(), cellularity.mMetaBody.getAngle(),
+						cellularity.mMetaBody.getMassCenterX(), cellularity.mMetaBody
+								.getMassCenterY());
+			}
+			FloatArray floatBuffer = graphicsModule.getFloatBuffer();
+			while (mLightRender.size() > 0) {
+				int val = mLightRender.pop();
+				graphicsModule.commandUpdateUnitLightCorners(mX, mY, val);
+				int id = val << LIGHT_CORNERS_SIZE_LOG;
+				for (int i = 0; i < LIGHT_CORNERS_SIZE; ++i)
+					floatBuffer.push(Math.min(255, mLightCorners[id + i]) / 255f);
+			}
+		}
+		while (mCellsRender.size() > 0) {
+			int val = mCellsRender.pop();
+			int x = getValX(val);
+			int y = getValY(val);
+			int z = getValZ(val);
+			if (isChunk())
+				graphicsModule.commandUpdateUnitChunk(mX, mY, val);
+			else
+				graphicsModule.commandUpdateUnitDynamic(mGraphicsModuleKey, val);
+			getCellHelper(x, y, z).render(this, x, y, z);
 		}
 	}
 
@@ -573,6 +622,12 @@ public final class Cellularity {
 			chunk.invalidateDropHelper(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ);
 	}
 
+	public void invalidateRender(int pX, int pY, int pZ) {
+		final Cellularity chunk = getChunk(pX, pY);
+		if (CHUNK_MIN_DEPTH <= pZ && pZ <= CHUNK_MAX_DEPTH && chunk != null)
+			chunk.invalidateRenderHelper(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ);
+	}
+
 	public void pushCellularity(Cellularity pCellularity) {
 		mCellularities.set(pCellularity);
 		pCellularity.attachChunk(this);
@@ -590,9 +645,7 @@ public final class Cellularity {
 		mTissularity = pTissularity;
 		mX = pX;
 		mY = pY;
-		TimeMeasure.sM7.start();
 		refreshOffset();
-		TimeMeasure.sM7.end();
 		invalidateBorder();
 		for (List.Node i = mCellularities.begin(); i != mCellularities.end(); i =
 				mCellularities.next(i))
@@ -656,6 +709,14 @@ public final class Cellularity {
 		}
 	}
 
+	public void refreshRender() {
+		for (List.Node i = mCellularities.begin(); i != mCellularities.end(); i =
+				mCellularities.next(i))
+			((Cellularity) mCellularities.val(i)).refreshRender();
+		for (int i = 0; i < CHUNK_VOLUME; ++i)
+			mCellsRender.set(i);
+	}
+
 	public short getGroupIndexOffset() {
 		return mTissularity == null ? 0
 				: (short) (mTissularity.getGroupIndexPackOffset() << CHUNK_DEPTH_LOG);
@@ -665,7 +726,6 @@ public final class Cellularity {
 		for (List.Node j = mCellularities.begin(); j != mCellularities.end(); j =
 				mCellularities.next(j)) {
 			Cellularity cellularity = (Cellularity) mCellularities.val(j);
-			cellularity.mMetaBody.refreshLastPositions();
 			cellularity.mMetaBody.refresh();
 		}
 	}
@@ -711,156 +771,6 @@ public final class Cellularity {
 		mTmpLight[1] = 0;
 		mTmpLight[2] = 0;
 		return mTmpLight;
-	}
-
-	public int getLightCornersOffset(int pX, int pY, int pZ) {
-		return getVal(pX, pY, pZ) << LIGHT_CORNERS_SIZE_LOG;
-	}
-
-	public short getLightR(float pFX, float pFY, int pX, int pY, int pZ) {
-		final Cellularity chunk = getChunk(pX, pY);
-		if (chunk == null)
-			return 0;
-		int cornerId =
-				getVal(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ) << LIGHT_CORNERS_SIZE_LOG;
-		float t =
-				(1.0f - pFX) * chunk.mLightCorners[cornerId + 4] + pFX
-						* chunk.mLightCorners[cornerId];
-		float b =
-				(1.0f - pFX) * chunk.mLightCorners[cornerId + 8] + pFX
-						* chunk.mLightCorners[cornerId + 12];
-		float m = (1.0f - pFY) * b + pFY * t;
-		return (short) m;
-	}
-
-	public short getLightG(float pFX, float pFY, int pX, int pY, int pZ) {
-		final Cellularity chunk = getChunk(pX, pY);
-		if (chunk == null)
-			return 0;
-		int cornerId =
-				getVal(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ) << LIGHT_CORNERS_SIZE_LOG;
-		float t =
-				(1.0f - pFX) * chunk.mLightCorners[cornerId + 5] + pFX
-						* chunk.mLightCorners[cornerId + 1];
-		float b =
-				(1.0f - pFX) * chunk.mLightCorners[cornerId + 9] + pFX
-						* chunk.mLightCorners[cornerId + 13];
-		float m = (1.0f - pFY) * b + pFY * t;
-		return (short) m;
-	}
-
-	public short getLightB(float pFX, float pFY, int pX, int pY, int pZ) {
-		final Cellularity chunk = getChunk(pX, pY);
-		if (chunk == null)
-			return 0;
-		int cornerId =
-				getVal(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ) << LIGHT_CORNERS_SIZE_LOG;
-		float t =
-				(1.0f - pFX) * chunk.mLightCorners[cornerId + 6] + pFX
-						* chunk.mLightCorners[cornerId + 2];
-		float b =
-				(1.0f - pFX) * chunk.mLightCorners[cornerId + 10] + pFX
-						* chunk.mLightCorners[cornerId + 14];
-		float m = (1.0f - pFY) * b + pFY * t;
-		return (short) m;
-	}
-
-	public void render(boolean[][] pHiddenCells, int pHiddenCellsSize, FloatArray[] pRenderBuffers,
-			int pOffsetX, int pOffsetY, float pCameraX, float pCameraY, float pCellSize,
-			int pChunkX, int pChunkY, float pWidth, float pHeight, int pZ, float pDt) {
-		if (isChunk())
-			renderStatic(pHiddenCells, pHiddenCellsSize, pRenderBuffers, pOffsetX, pOffsetY,
-					pCameraX, pCameraY, pCellSize, pChunkX, pChunkY, pWidth, pHeight, pZ);
-		else
-			renderDynamic(pRenderBuffers, pOffsetX, pOffsetY, pCameraX, pCameraY, pCellSize,
-					pChunkX, pChunkY, pDt);
-	}
-
-	private void renderDynamic(FloatArray[] pRenderBuffers, int pOffsetX, int pOffsetY,
-			float pCameraX, float pCameraY, float pCellSize, int pChunkX, int pChunkY, float pDt) {
-		float timeRatio = pDt / Settings.TIME_STEP;
-		float oneMinusTimeRation = 1f - timeRatio;
-		float angle =
-				mMetaBody.getAngle() * timeRatio + mMetaBody.getLastAngle() * oneMinusTimeRation;
-		float cos = (float) Math.cos(angle);
-		float sin = (float) Math.sin(angle);
-		float posX =
-				(pChunkX << Settings.CHUNK_SIZE_LOG) - pOffsetX + mMetaBody.getPositionX()
-						* timeRatio + mMetaBody.getLastPositionX() * oneMinusTimeRation - pCameraX;
-		float posY =
-				(pChunkY << Settings.CHUNK_SIZE_LOG) - pOffsetY + mMetaBody.getPositionY()
-						* timeRatio + mMetaBody.getLastPositionY() * oneMinusTimeRation - pCameraY;
-		posX *= pCellSize;
-		posY *= pCellSize;
-		for (int i = mCellsKeys.size() - 1; i >= 0; --i) {
-			int val = mCellsKeys.key(i);
-			int x = getValX(val);
-			int y = getValY(val);
-			int z = getValZ(val);
-			Cell cell = getCellHelper(x, y, z);
-			float depthFactor = Settings.DEPTH_FACTORS[z];
-			cell.render(this, x, y, z, posX / depthFactor, posY / depthFactor, x
-					- Settings.CHUNK_HSIZE, y - Settings.CHUNK_HSIZE, pCellSize / depthFactor, cos,
-					sin, pRenderBuffers);
-		}
-	}
-
-	private void renderStatic(boolean[][] pHiddenCells, int pHiddenCellsSize,
-			FloatArray[] pRenderBuffers, int pOffsetX, int pOffsetY, float pCameraX,
-			float pCameraY, float pCellSize, int pChunkX, int pChunkY, float pWidth, float pHeight,
-			int pZ) {
-		int chunkX = pChunkX << Settings.CHUNK_SIZE_LOG;
-		int chunkY = pChunkY << Settings.CHUNK_SIZE_LOG;
-		int tmpX = chunkX - pOffsetX;
-		int tmpY = chunkY - pOffsetY;
-		float depthFactor = Settings.DEPTH_FACTORS[pZ];
-		float depthWidth = pWidth * depthFactor;
-		float depthHeight = pHeight * depthFactor;
-
-		int left = MathUtils.floor(pCameraX - pWidth / 2) - tmpX;
-		int bottom = MathUtils.floor(pCameraY - pHeight / 2) - tmpY;
-
-		int col1 = Math.max(CHUNK_LEFT, MathUtils.floor(pCameraX - depthWidth / 2) - tmpX);
-		int col2 = Math.min(CHUNK_RIGHT, MathUtils.floor(pCameraX + depthWidth / 2) - tmpX);
-		int row1 = Math.max(CHUNK_BOTTOM, MathUtils.floor(pCameraY - depthHeight / 2) - tmpY);
-		int row2 = Math.min(CHUNK_TOP, MathUtils.floor(pCameraY + depthHeight / 2) - tmpY);
-
-		pCellSize /= depthFactor;
-
-		float offsetX = -pCameraX * pCellSize;
-		float offsetY = -pCameraY * pCellSize;
-
-		for (int y = row1; y <= row2; ++y)
-			for (int x = col1; x <= col2; ++x) {
-				if (pZ != CHUNK_MIN_DEPTH) {
-					int hiddenX =
-							MathUtils.floor((tmpX + x - pCameraX) / depthFactor + pCameraX - tmpX)
-									- left;
-					int hiddenY =
-							MathUtils.floor((tmpY + y - pCameraY) / depthFactor + pCameraY - tmpY)
-									- bottom;
-					if ((0 > hiddenX || hiddenX >= pHiddenCellsSize || 0 > hiddenY
-							|| hiddenY >= pHiddenCellsSize || !pHiddenCells[hiddenY][hiddenX])
-							&& (0 > hiddenX + 1 || hiddenX + 1 >= pHiddenCellsSize || 0 > hiddenY
-									|| hiddenY >= pHiddenCellsSize || !pHiddenCells[hiddenY][hiddenX + 1])
-							&& (0 > hiddenX || hiddenX >= pHiddenCellsSize || 0 > hiddenY + 1
-									|| hiddenY + 1 >= pHiddenCellsSize || !pHiddenCells[hiddenY + 1][hiddenX])
-							&& (0 > hiddenX + 1 || hiddenX + 1 >= pHiddenCellsSize
-									|| 0 > hiddenY + 1 || hiddenY + 1 >= pHiddenCellsSize || !pHiddenCells[hiddenY + 1][hiddenX + 1]))
-						continue;
-				}
-				Cell cell = getCellHelper(x, y, pZ);
-				boolean flag =
-						cell.render(this, x, y, pZ, offsetX, offsetY, x + tmpX, y + tmpY,
-								pCellSize, 1.0f, 0.0f, pRenderBuffers);
-				if (pZ == CHUNK_MIN_DEPTH) {
-					int hiddenX = x - left;
-					int hiddenY = y - bottom;
-					if (0 <= hiddenX && hiddenX < pHiddenCellsSize && 0 <= hiddenY
-							&& hiddenY < pHiddenCellsSize)
-						pHiddenCells[hiddenY][hiddenX] = flag;
-				}
-			}
 	}
 
 	private void setLightHelper(int pX, int pY, int pZ, int pR, int pG, int pB) {
@@ -922,6 +832,12 @@ public final class Cellularity {
 	}
 
 	private void tissularedAttachHelper() {
+		Tissularity tissularity = isChunk() ? mTissularity : mChunk.mTissularity;
+		GraphicsModule graphicsModule = tissularity.getGraphicsModule();
+		if (isChunk())
+			graphicsModule.commandPushChunk(mX, mY);
+		else
+			mGraphicsModuleKey = graphicsModule.commandPushDynamic();
 		for (int i = mCellsKeys.size() - 1; i >= 0; --i) {
 			int val = mCellsKeys.key(i);
 			int x = getValX(val);
@@ -932,6 +848,12 @@ public final class Cellularity {
 	}
 
 	private void tissularedDetachHelper() {
+		Tissularity tissularity = isChunk() ? mTissularity : mChunk.mTissularity;
+		GraphicsModule graphicsModule = tissularity.getGraphicsModule();
+		if (isChunk())
+			graphicsModule.commandRemoveChunk(mX, mY);
+		else
+			graphicsModule.commandRemoveDynamic(mGraphicsModuleKey);
 		for (int i = mCellsKeys.size() - 1; i >= 0; --i) {
 			int val = mCellsKeys.key(i);
 			int x = getValX(val);
@@ -996,7 +918,6 @@ public final class Cellularity {
 
 	private void setCellHelper(int pX, int pY, int pZ, Cell pCell) {
 		setCellPure(pX, pY, pZ, pCell);
-		invalidateLightHelper(pX, pY, pZ);
 		for (int i = 0; i < CELL_UPDATE_SIZE; ++i)
 			invalidateCell(pX + CELL_UPDATE_X[i], pY + CELL_UPDATE_Y[i], pZ + CELL_UPDATE_Z[i]);
 		invalidateDropHelper(pX, pY, pZ);
@@ -1031,6 +952,7 @@ public final class Cellularity {
 		final int val = getVal(pX, pY, pZ);
 		mCellsUpdate.set(val);
 		mCellsRefresh.set(val);
+		mCellsRender.set(val);
 		mLightUpdate.set(val);
 		if (mCellsModifiedKeys.remove(val)) {
 			mCellsModified[val].recycle();
@@ -1042,10 +964,15 @@ public final class Cellularity {
 		mDropUpdate.set(getVal(pX, pY, pZ));
 	}
 
+	private void invalidateRenderHelper(int pX, int pY, int pZ) {
+		mCellsRender.set(getVal(pX, pY, pZ));
+	}
+
 	private void invalidateLightHelper(int pX, int pY, int pZ) {
 		final int val = getVal(pX, pY, pZ);
 		mLightUpdate.set(val);
 		mLightRefresh.set(val);
+		mLightRender.set(val);
 		if (mLightSensor[val] == 1) {
 			mCellsUpdate.set(val);
 			mCellsRefresh.set(val);

@@ -1,10 +1,13 @@
 package com.gaskarov.teerain.tissularity;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.gaskarov.teerain.Organularity;
 import com.gaskarov.teerain.Player;
+import com.gaskarov.teerain.Settings;
 import com.gaskarov.teerain.cellularity.Cellularity;
 import com.gaskarov.teerain.organoid.ControlOrganoid;
 import com.gaskarov.teerain.util.TimeMeasure;
@@ -65,18 +68,9 @@ public final class MainTissularity extends Tissularity {
 	}
 
 	@Override
-	public int getHiddenCellsSize() {
-		return 0;
-	}
-
-	@Override
-	public boolean[][] getHiddenCells() {
-		return null;
-	}
-
-	@Override
-	public void attach(Organularity pOrganularity) {
-		super.attach(pOrganularity);
+	public void attach(Organularity pOrganularity, long pUpdateLastTime,
+			float pUpdateAccumulatedTime) {
+		super.attach(pOrganularity, pUpdateLastTime, pUpdateAccumulatedTime);
 		pOrganularity.pushTissularity(mGameTissularity);
 		pOrganularity.pushTissularity(mHUDTissularity);
 	}
@@ -96,18 +90,26 @@ public final class MainTissularity extends Tissularity {
 	}
 
 	@Override
-	public void render(float pDt) {
+	public void render(long pTime) {
 		SpriteBatch spriteBatch = mOrganularity.getSpriteBatch();
-		spriteBatch.setProjectionMatrix(mOrganularity.getCamera().combined);
-		TimeMeasure.sM13.start();
+
+		TimeMeasure.sM10.start();
+		Gdx.gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+		TimeMeasure.sM10.end();
+
+		TimeMeasure.sM10.start();
 		spriteBatch.begin();
-		TimeMeasure.sM13.end();
-		mGameTissularity.render(pDt);
-		mHUDTissularity.render(pDt);
-		TimeMeasure.sM14.start();
+		TimeMeasure.sM10.end();
+		OrthographicCamera camera = mOrganularity.getCamera();
+		render(Settings.TILE_RENDER, camera.viewportWidth / Settings.TILE_RENDER,
+				camera.viewportHeight / Settings.TILE_RENDER, pTime);
+		mGameTissularity.render(pTime);
+		mHUDTissularity.render(pTime);
+		TimeMeasure.sM10.start();
 		spriteBatch.end();
-		TimeMeasure.sM14.end();
-		mGameTissularity.renderDebug(pDt);
+		TimeMeasure.sM10.end();
+		mGameTissularity.renderDebug();
 	}
 
 	@Override
@@ -120,6 +122,8 @@ public final class MainTissularity extends Tissularity {
 		camera.viewportWidth = 2f * Math.min(aspectRatio, 1f);
 		camera.viewportHeight = 2f / Math.max(aspectRatio, 1f);
 		camera.update();
+
+		mOrganularity.getSpriteBatch().setProjectionMatrix(mOrganularity.getCamera().combined);
 	}
 
 	@Override

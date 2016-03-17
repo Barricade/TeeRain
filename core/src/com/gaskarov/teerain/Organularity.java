@@ -1,5 +1,6 @@
 package com.gaskarov.teerain;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
@@ -15,6 +16,9 @@ import com.gaskarov.teerain.tissularity.Tissularity;
 import com.gaskarov.teerain.util.Collidable;
 import com.gaskarov.teerain.util.OperationSolver;
 import com.gaskarov.teerain.util.TimeMeasure;
+import com.gaskarov.util.common.MathUtils;
+import com.gaskarov.util.constants.GlobalConstants;
+import com.gaskarov.util.container.Array;
 import com.gaskarov.util.container.FloatArray;
 import com.gaskarov.util.container.IntArray;
 import com.gaskarov.util.container.LinkedHashTable;
@@ -30,6 +34,15 @@ public final class Organularity implements ContactListener {
 	// ===========================================================
 	// Constants
 	// ===========================================================
+
+	public static final int COMMAND_KEY_DOWN = 0;
+	public static final int COMMAND_KEY_UP = 1;
+	public static final int COMMAND_KEY_TYPED = 2;
+	public static final int COMMAND_TOUCH_DOWN = 3;
+	public static final int COMMAND_TOUCH_UP = 4;
+	public static final int COMMAND_TOUCH_DRAGGED = 5;
+	public static final int COMMAND_MOUSE_MOVED = 6;
+	public static final int COMMAND_SCROLLED = 7;
 
 	// ===========================================================
 	// Fields
@@ -48,8 +61,19 @@ public final class Organularity implements ContactListener {
 	private IntArray mGroupIndexPacks;
 
 	private OperationSolver mOperationSolver;
+	private OperationSolver mUpdateOperationSolver;
 
 	private LinkedHashTable mTissularities;
+	private volatile Tissularity mMainTissularity;
+
+	private long mUpdateLastTime;
+	private float mUpdateAccumulatedTime;
+
+	private Updater mUpdater;
+
+	private Object mInputMonitor = new Object();
+	private IntArray mInputBufferA;
+	private IntArray mInputBufferB;
 
 	// ===========================================================
 	// Constructors
@@ -204,17 +228,21 @@ public final class Organularity implements ContactListener {
 		obj.mGroupIndexPacksSize = 1;
 		obj.mGroupIndexPacks = IntArray.obtain();
 		obj.mOperationSolver = new OperationSolver(Settings.OPERATION_SOLVER_MAX_THREADS);
+		obj.mUpdateOperationSolver = new OperationSolver(1);
 		obj.mTissularities = LinkedHashTable.obtain();
+		obj.mMainTissularity = null;
+		obj.mInputBufferA = IntArray.obtain();
+		obj.mInputBufferB = IntArray.obtain();
 		return obj;
 	}
 
 	public static void recycle(Organularity pObj) {
-		while (pObj.mTissularities.size() > 0)
-			pObj.removeTissularity((Tissularity) pObj.mTissularities.front());
 		LinkedHashTable.recycle(pObj.mTissularities);
 		pObj.mTissularities = null;
 		pObj.mOperationSolver.dispose();
 		pObj.mOperationSolver = null;
+		pObj.mUpdateOperationSolver.dispose();
+		pObj.mUpdateOperationSolver = null;
 		IntArray.recycle(pObj.mGroupIndexPacks);
 		pObj.mGroupIndexPacks = null;
 		pObj.mWorld.dispose();
@@ -229,20 +257,36 @@ public final class Organularity implements ContactListener {
 			FloatArray.recycle(pObj.mRenderBuffers[i]);
 			pObj.mRenderBuffers[i] = null;
 		}
+		IntArray.recycle(pObj.mInputBufferA);
+		pObj.mInputBufferA = null;
+		IntArray.recycle(pObj.mInputBufferB);
+		pObj.mInputBufferB = null;
 	}
 
-	public void tick() {
-		TimeMeasure.sM8.start();
-		mWorld.step(Settings.TIME_STEP, Settings.VELOCITY_ITERATIONS, Settings.POSITION_ITERATIONS);
-		TimeMeasure.sM8.end();
+	public synchronized void start(Tissularity pMainTissularity) {
+		long curTime = System.currentTimeMillis();
+		mUpdateLastTime = curTime;
+		mUpdateAccumulatedTime = 0f;
+		mUpdater = Updater.obtain(this);
+		mUpdateOperationSolver.pushOperation(mUpdater);
+		mMainTissularity = pMainTissularity;
+		pushTissularity(pMainTissularity);
 	}
 
-	public void pushTissularity(Tissularity pTissularity) {
+	public synchronized void stop() {
+		removeTissularity(mMainTissularity);
+		mMainTissularity = null;
+		mUpdater.finish();
+		mUpdater = null;
+		waitUpdater();
+	}
+
+	public synchronized void pushTissularity(Tissularity pTissularity) {
 		mTissularities.set(pTissularity);
-		pTissularity.attach(this);
+		pTissularity.attach(this, mUpdateLastTime, mUpdateAccumulatedTime);
 	}
 
-	public void removeTissularity(Tissularity pTissularity) {
+	public synchronized void removeTissularity(Tissularity pTissularity) {
 		pTissularity.detach();
 		mTissularities.remove(pTissularity);
 	}
@@ -264,6 +308,15 @@ public final class Organularity implements ContactListener {
 		}
 	}
 
+	public void waitUpdater() {
+		try {
+			while (!mUpdateOperationSolver.isEmpty())
+				wait(Settings.WAIT_LOOP_DELAY);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public boolean operationsEmpty() {
 		return mOperationSolver.isEmpty();
 	}
@@ -278,8 +331,232 @@ public final class Organularity implements ContactListener {
 		mGroupIndexPacks.push(pGroupIndexPack);
 	}
 
+	public void render() {
+		TimeMeasure.sM9.start();
+		mMainTissularity.render(System.currentTimeMillis() - Settings.RENDER_DELAY);
+		TimeMeasure.sM9.end();
+	}
+
+	public void resize(int pWidth, int pHeight) {
+		mMainTissularity.resize(pWidth, pHeight);
+	}
+
+	public void keyDown(int pKeycode) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_KEY_DOWN);
+			mInputBufferA.push(pKeycode);
+		}
+	}
+
+	public void keyUp(int pKeycode) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_KEY_UP);
+			mInputBufferA.push(pKeycode);
+		}
+	}
+
+	public void keyTyped(char pCharacter) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_KEY_TYPED);
+			mInputBufferA.push(pCharacter);
+		}
+	}
+
+	public void touchDown(int pScreenX, int pScreenY, int pPointer, int pButton) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_TOUCH_DOWN);
+			mInputBufferA.push(pScreenX);
+			mInputBufferA.push(pScreenY);
+			mInputBufferA.push(pPointer);
+			mInputBufferA.push(pButton);
+		}
+	}
+
+	public void touchUp(int pScreenX, int pScreenY, int pPointer, int pButton) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_TOUCH_UP);
+			mInputBufferA.push(pScreenX);
+			mInputBufferA.push(pScreenY);
+			mInputBufferA.push(pPointer);
+			mInputBufferA.push(pButton);
+		}
+	}
+
+	public void touchDragged(int pScreenX, int pScreenY, int pPointer) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_TOUCH_DRAGGED);
+			mInputBufferA.push(pScreenX);
+			mInputBufferA.push(pScreenY);
+			mInputBufferA.push(pPointer);
+		}
+	}
+
+	public void mouseMoved(int pScreenX, int pScreenY) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_MOUSE_MOVED);
+			mInputBufferA.push(pScreenX);
+			mInputBufferA.push(pScreenY);
+		}
+	}
+
+	public void scrolled(int pAmount) {
+		synchronized (mInputMonitor) {
+			mInputBufferA.push(COMMAND_SCROLLED);
+			mInputBufferA.push(pAmount);
+		}
+	}
+
+	private void tick() {
+		synchronized (mInputMonitor) {
+			IntArray tmp = mInputBufferA;
+			mInputBufferA = mInputBufferB;
+			mInputBufferB = tmp;
+		}
+		int id = 0;
+		while (id < mInputBufferB.size()) {
+			switch (mInputBufferB.get(id++)) {
+			case COMMAND_KEY_DOWN: {
+				int keycode = mInputBufferB.get(id++);
+				mMainTissularity.keyDown(keycode);
+				break;
+			}
+			case COMMAND_KEY_UP: {
+				int keycode = mInputBufferB.get(id++);
+				mMainTissularity.keyUp(keycode);
+				break;
+			}
+
+			case COMMAND_KEY_TYPED: {
+				int character = mInputBufferB.get(id++);
+				mMainTissularity.keyTyped((char) character);
+				break;
+			}
+			case COMMAND_TOUCH_DOWN: {
+				int screenX = mInputBufferB.get(id++);
+				int screenY = mInputBufferB.get(id++);
+				int pointer = mInputBufferB.get(id++);
+				int button = mInputBufferB.get(id++);
+				mMainTissularity.touchDown(screenX, screenY, pointer, button);
+				break;
+			}
+			case COMMAND_TOUCH_UP: {
+				int screenX = mInputBufferB.get(id++);
+				int screenY = mInputBufferB.get(id++);
+				int pointer = mInputBufferB.get(id++);
+				int button = mInputBufferB.get(id++);
+				mMainTissularity.touchUp(screenX, screenY, pointer, button);
+				break;
+			}
+			case COMMAND_TOUCH_DRAGGED: {
+				int screenX = mInputBufferB.get(id++);
+				int screenY = mInputBufferB.get(id++);
+				int pointer = mInputBufferB.get(id++);
+				mMainTissularity.touchDragged(screenX, screenY, pointer);
+				break;
+			}
+			case COMMAND_MOUSE_MOVED: {
+				int screenX = mInputBufferB.get(id++);
+				int screenY = mInputBufferB.get(id++);
+				mMainTissularity.mouseMoved(screenX, screenY);
+				break;
+			}
+			case COMMAND_SCROLLED: {
+				int amount = mInputBufferB.get(id++);
+				mMainTissularity.scrolled(amount);
+				break;
+			}
+			default:
+				break;
+			}
+		}
+		mInputBufferB.clear();
+		TimeMeasure.start();
+		TimeMeasure.sM1.start();
+		TimeMeasure.sM8.start();
+		mWorld.step(Settings.TIME_STEP, Settings.VELOCITY_ITERATIONS, Settings.POSITION_ITERATIONS);
+		TimeMeasure.sM8.end();
+		mMainTissularity.tick();
+		mUpdateAccumulatedTime += Settings.TIME_STEP_MILLIS;
+		long millis = (long) mUpdateAccumulatedTime;
+		mUpdateAccumulatedTime -= millis;
+		mUpdateLastTime += millis;
+		TimeMeasure.sM1.end();
+		TimeMeasure.end();
+	}
+
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================
+
+	public static class Updater implements Runnable {
+
+		private static final Array sPool = Array.obtain();
+
+		private Organularity mOrganularity;
+		private boolean mIsAlive;
+
+		@Override
+		public void run() {
+			synchronized (mOrganularity) {
+				while (true) {
+					if (!mIsAlive) {
+						recycle(this);
+						return;
+					}
+					long time =
+							-MathUtils
+									.floorToLong((System.currentTimeMillis()
+											- mOrganularity.mUpdateLastTime
+											- Settings.TIME_STEP_MILLIS - mOrganularity.mUpdateAccumulatedTime));
+					if (time > 30) {
+						Gdx.app.log("TAG", "" + time);
+					}
+					if (time <= 0)
+						break;
+					try {
+						mOrganularity.wait(time);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+				mOrganularity.tick();
+				mOrganularity.mUpdateOperationSolver.pushOperation(this);
+			}
+		}
+
+		private static Updater obtainPure() {
+			if (GlobalConstants.POOL)
+				synchronized (Updater.class) {
+					return sPool.size() == 0 ? new Updater() : (Updater) sPool.pop();
+				}
+			return new Updater();
+		}
+
+		private static void recyclePure(Updater pObj) {
+			if (GlobalConstants.POOL)
+				synchronized (Updater.class) {
+					sPool.push(pObj);
+				}
+		}
+
+		public static Updater obtain(Organularity pOrganularity) {
+			Updater obj = obtainPure();
+			obj.mOrganularity = pOrganularity;
+			obj.mIsAlive = true;
+			return obj;
+		}
+
+		public static void recycle(Updater pObj) {
+			pObj.mOrganularity = null;
+			recyclePure(pObj);
+		}
+
+		public void finish() {
+			synchronized (mOrganularity) {
+				mIsAlive = false;
+			}
+		}
+
+	}
 
 }

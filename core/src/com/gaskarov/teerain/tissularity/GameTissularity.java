@@ -1,7 +1,6 @@
 package com.gaskarov.teerain.tissularity;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
@@ -21,7 +20,6 @@ import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.common.NoiseMath;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
-import com.gaskarov.util.container.FloatArray;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -35,15 +33,11 @@ public final class GameTissularity extends Tissularity {
 	// Constants
 	// ===========================================================
 
-	public static final int HIDDEN_CELLS_SIZE = (int) (2 / Settings.TILE_RENDER) + 2;
-
 	// ===========================================================
 	// Fields
 	// ===========================================================
 
 	private static final Array sPool = Array.obtain();
-
-	private final boolean[][] mHiddenCells = new boolean[HIDDEN_CELLS_SIZE][HIDDEN_CELLS_SIZE];
 
 	private Controller mController;
 
@@ -79,25 +73,14 @@ public final class GameTissularity extends Tissularity {
 	}
 
 	@Override
-	public int getHiddenCellsSize() {
-		return HIDDEN_CELLS_SIZE;
-	}
-
-	@Override
-	public boolean[][] getHiddenCells() {
-		return mHiddenCells;
-	}
-
-	@Override
-	public void attach(Organularity pOrganularity) {
-		super.attach(pOrganularity);
+	public void attach(Organularity pOrganularity, long pUpdateLastTime,
+			float pUpdateAccumulatedTime) {
+		super.attach(pOrganularity, pUpdateLastTime, pUpdateAccumulatedTime);
 		int w = 0;
 		int h = ChunkLoader.getY(0);
 		int chunkX = w >> Settings.CHUNK_SIZE_LOG;
 		int chunkY = h >> Settings.CHUNK_SIZE_LOG;
 		addVisitor(chunkX, chunkY, 1, 1);
-		mCameraLastX = mCameraX = w - mOffsetX;
-		mCameraLastY = mCameraY = h - mOffsetY;
 		waitChunks();
 		Cellularity chunk = getChunk(chunkX, chunkY);
 		chunk.setCell(5, 5, 0, RockCell.obtain());
@@ -109,22 +92,11 @@ public final class GameTissularity extends Tissularity {
 	}
 
 	@Override
-	public void render(float pDt) {
-		TimeMeasure.sM10.start();
-		Gdx.gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-		TimeMeasure.sM10.end();
-
-		FloatArray[] renderBuffers = mOrganularity.getRenderBuffers();
+	public void render(long pTime) {
 		OrthographicCamera camera = mOrganularity.getCamera();
-		float timeRatio = pDt / Settings.TIME_STEP;
-		float cameraX = mCameraX * timeRatio + mCameraLastX * (1f - timeRatio);
-		float cameraY = mCameraY * timeRatio + mCameraLastY * (1f - timeRatio);
-
 		TimeMeasure.sM11.start();
-		render(renderBuffers, mOffsetX, mOffsetY, cameraX, cameraY, Settings.TILE_RENDER,
-				camera.viewportWidth / Settings.TILE_RENDER, camera.viewportHeight
-						/ Settings.TILE_RENDER, pDt);
+		render(Settings.TILE_RENDER, camera.viewportWidth / Settings.TILE_RENDER,
+				camera.viewportHeight / Settings.TILE_RENDER, pTime);
 		TimeMeasure.sM11.end();
 	}
 
@@ -227,18 +199,17 @@ public final class GameTissularity extends Tissularity {
 		recyclePure(pObj);
 	}
 
-	public void renderDebug(float pDt) {
+	public void renderDebug() {
 		if (Settings.BOX2D_DEBUG_DRAW) {
-			OrthographicCamera camera = mOrganularity.getCamera();
-			float timeRatio = pDt / Settings.TIME_STEP;
-			float cameraX = mCameraX * timeRatio + mCameraLastX * (1f - timeRatio);
-			float cameraY = mCameraY * timeRatio + mCameraLastY * (1f - timeRatio);
-			Matrix4 box2DDebugCameraMatrix = mOrganularity.getBox2DDebugCameraMatrix();
-			box2DDebugCameraMatrix.set(camera.combined);
-			box2DDebugCameraMatrix.scale(Settings.TILE_RENDER, Settings.TILE_RENDER, 1f);
-			box2DDebugCameraMatrix.translate(-cameraX, -cameraY, 0);
-			mOrganularity.getBox2DDebugRenderer().render(mOrganularity.getWorld(),
-					box2DDebugCameraMatrix);
+			synchronized (mOrganularity) {
+				OrthographicCamera camera = mOrganularity.getCamera();
+				Matrix4 box2DDebugCameraMatrix = mOrganularity.getBox2DDebugCameraMatrix();
+				box2DDebugCameraMatrix.set(camera.combined);
+				box2DDebugCameraMatrix.scale(Settings.TILE_RENDER, Settings.TILE_RENDER, 1f);
+				box2DDebugCameraMatrix.translate(-mCameraX, -mCameraY, 0);
+				mOrganularity.getBox2DDebugRenderer().render(mOrganularity.getWorld(),
+						box2DDebugCameraMatrix);
+			}
 		}
 	}
 
@@ -317,7 +288,6 @@ public final class GameTissularity extends Tissularity {
 			chunk.postDrop();
 			chunk.refresh();
 			chunk.precalc(1);
-			chunk.prerender();
 
 			mChunkHolder.setChunk(chunk);
 
