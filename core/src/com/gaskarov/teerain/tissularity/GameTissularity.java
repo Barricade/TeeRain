@@ -73,9 +73,8 @@ public final class GameTissularity extends Tissularity {
 	}
 
 	@Override
-	public void attach(Organularity pOrganularity, long pUpdateLastTime,
-			float pUpdateAccumulatedTime) {
-		super.attach(pOrganularity, pUpdateLastTime, pUpdateAccumulatedTime);
+	public void attach(Organularity pOrganularity) {
+		super.attach(pOrganularity);
 		int w = 0;
 		int h = ChunkLoader.getY(0);
 		int chunkX = w >> Settings.CHUNK_SIZE_LOG;
@@ -84,7 +83,7 @@ public final class GameTissularity extends Tissularity {
 		waitChunks();
 		Cellularity chunk = getChunk(chunkX, chunkY);
 		chunk.setCell(5, 5, 0, RockCell.obtain());
-		chunk.setCell(2, 8, 0, TeeCell.obtain());
+		chunk.setCell(2, 7, 0, TeeCell.obtain());
 		for (int i = 0; i < 8; ++i)
 			chunk.setCell(w, 1 + i, 0, RockCell.obtain());
 		waitChunks();
@@ -93,6 +92,8 @@ public final class GameTissularity extends Tissularity {
 
 	@Override
 	public void render(long pTime) {
+		if (mOrganularity == null)
+			return;
 		OrthographicCamera camera = mOrganularity.getCamera();
 		TimeMeasure.sM11.start();
 		render(Settings.TILE_RENDER, camera.viewportWidth / Settings.TILE_RENDER,

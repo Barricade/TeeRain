@@ -119,12 +119,10 @@ public abstract class Tissularity {
 	// Methods
 	// ===========================================================
 
-	public void attach(Organularity pOrganularity, long pUpdateLastTime,
-			float pUpdateAccumulatedTime) {
+	public void attach(Organularity pOrganularity) {
 		mOrganularity = pOrganularity;
 		mStepsLeft = Settings.STEPS_PER_TICK;
 		mGroupIndexPackOffset = mOrganularity.addGroupIndexPack();
-		mGraphicsModule.setTime(pUpdateLastTime, pUpdateAccumulatedTime);
 	}
 
 	public void detach() {
@@ -142,6 +140,8 @@ public abstract class Tissularity {
 	}
 
 	public void tick() {
+		if (mOrganularity == null)
+			return;
 		for (List.Node i = mChunks.begin(); i != mChunks.end(); i = mChunks.next(i)) {
 			Cellularity chunk = ((ChunkHolder) ((KeyValuePair) mChunks.val(i)).mB).chunk();
 			if (chunk != null)
@@ -223,7 +223,7 @@ public abstract class Tissularity {
 				chunk.render();
 		}
 		mGraphicsModule.commandMoveCamera(0, 0, 0, mCameraX, mCameraY);
-		mGraphicsModule.commandsFlush();
+		mGraphicsModule.commandsFlush(mOrganularity.getUpdateLastTime());
 	}
 
 	public void render(long pTime) {

@@ -4,14 +4,10 @@ import static com.gaskarov.teerain.Settings.CHUNK_BOTTOM;
 import static com.gaskarov.teerain.Settings.CHUNK_LEFT;
 import static com.gaskarov.teerain.Settings.CHUNK_RIGHT;
 import static com.gaskarov.teerain.Settings.CHUNK_SIZE_LOG;
-import static com.gaskarov.teerain.Settings.CHUNK_SIZE_MASK;
 import static com.gaskarov.teerain.Settings.CHUNK_SQUARE_LOG;
 import static com.gaskarov.teerain.Settings.CHUNK_TOP;
 import static com.gaskarov.teerain.Settings.CHUNK_VOLUME;
-import static com.gaskarov.teerain.Settings.LIGHT_CORNERS_SIZE;
-import static com.gaskarov.teerain.Settings.LIGHT_CORNERS_SIZE_LOG;
 
-import com.badlogic.gdx.graphics.Color;
 import com.gaskarov.teerain.Settings;
 import com.gaskarov.util.common.IntVector2;
 import com.gaskarov.util.common.KeyValuePair;
@@ -39,7 +35,7 @@ public final class GraphicsModule {
 	// Constants
 	// ===========================================================
 
-	public static final int ELEMENTS_PER_UNIT_VERTEX = 8;
+	public static final int ELEMENTS_PER_UNIT_VERTEX = 5;
 	public static final int ELEMENTS_PER_UNIT_TEXTURE = ELEMENTS_PER_UNIT_VERTEX << 2;
 
 	private static final int COMMAND_PUSH_CHUNK = 0;
@@ -47,9 +43,9 @@ public final class GraphicsModule {
 	private static final int COMMAND_PUSH_DYNAMIC = 2;
 	private static final int COMMAND_MOVE_DYNAMIC = 3;
 	private static final int COMMAND_REMOVE_DYNAMIC = 4;
-	private static final int COMMAND_UPDATE_UNIT_CHUNK = 5;
-	private static final int COMMAND_UPDATE_UNIT_DYNAMIC = 6;
-	private static final int COMMAND_UPDATE_UNIT_LIGHT_CORNERS = 7;
+	private static final int COMMAND_SET_CHUNK = 5;
+	private static final int COMMAND_SET_DYNAMIC = 6;
+	private static final int COMMAND_UPDATE_UNIT = 7;
 	private static final int COMMAND_MOVE_CAMERA = 8;
 	private static final int COMMAND_OFFSET = 9;
 
@@ -83,12 +79,14 @@ public final class GraphicsModule {
 	private float mCameraNextMassCenterX;
 	private float mCameraNextMassCenterY;
 
-	private long mLastTime;
-	private float mAccumulatedTime;
+	private GraphicsBody mCurrentGraphicsBody;
 
 	private final Queue mUpdates = Queue.obtain(CAPACITY_UPDATES);
 
 	private GraphicsBuffer mBuffer;
+
+	private long mLastTime;
+	private long mNextTime;
 
 	// ===========================================================
 	// Constructors
@@ -145,6 +143,9 @@ public final class GraphicsModule {
 
 		obj.mBuffer = GraphicsBuffer.obtain();
 
+		obj.mLastTime = 0;
+		obj.mNextTime = 0;
+
 		return obj;
 	}
 
@@ -172,11 +173,6 @@ public final class GraphicsModule {
 		pObj.mBuffer = null;
 
 		recyclePure(pObj);
-	}
-
-	public void setTime(long pLastTime, float pAccumulatedTime) {
-		mLastTime = pLastTime;
-		mAccumulatedTime = pAccumulatedTime;
 	}
 
 	public FloatArray getFloatBuffer() {
@@ -221,23 +217,19 @@ public final class GraphicsModule {
 		mDynamicsShadow.remove(pKey);
 	}
 
-	public void commandUpdateUnitChunk(int pChunkX, int pChunkY, int pVal) {
-		mBuffer.mIntBuffer.push(COMMAND_UPDATE_UNIT_CHUNK);
+	public void commandSetChunk(int pChunkX, int pChunkY) {
+		mBuffer.mIntBuffer.push(COMMAND_SET_CHUNK);
 		mBuffer.mIntBuffer.push(pChunkX);
 		mBuffer.mIntBuffer.push(pChunkY);
-		mBuffer.mIntBuffer.push(pVal);
 	}
 
-	public void commandUpdateUnitDynamic(int pKey, int pVal) {
-		mBuffer.mIntBuffer.push(COMMAND_UPDATE_UNIT_DYNAMIC);
+	public void commandSetDynamic(int pKey) {
+		mBuffer.mIntBuffer.push(COMMAND_SET_DYNAMIC);
 		mBuffer.mIntBuffer.push(pKey);
-		mBuffer.mIntBuffer.push(pVal);
 	}
 
-	public void commandUpdateUnitLightCorners(int pChunkX, int pChunkY, int pVal) {
-		mBuffer.mIntBuffer.push(COMMAND_UPDATE_UNIT_LIGHT_CORNERS);
-		mBuffer.mIntBuffer.push(pChunkX);
-		mBuffer.mIntBuffer.push(pChunkY);
+	public void commandUpdateUnit(int pVal) {
+		mBuffer.mIntBuffer.push(COMMAND_UPDATE_UNIT);
 		mBuffer.mIntBuffer.push(pVal);
 	}
 
@@ -257,7 +249,8 @@ public final class GraphicsModule {
 		mBuffer.mIntBuffer.push(pOffsetY);
 	}
 
-	public synchronized void commandsFlush() {
+	public synchronized void commandsFlush(long pTime) {
+		mBuffer.mTime = pTime;
 		mUpdates.push(mBuffer);
 		mBuffer = GraphicsBuffer.obtain();
 	}
@@ -302,56 +295,37 @@ public final class GraphicsModule {
 			}
 			case COMMAND_REMOVE_DYNAMIC: {
 				int key = intBuffer.get(intBufferId++);
+				GraphicsBody.recycle((GraphicsBody) mDynamics.get(key));
 				mDynamics.remove(key);
 				break;
 			}
-			case COMMAND_UPDATE_UNIT_CHUNK: {
+			case COMMAND_SET_CHUNK: {
 				int chunkX = intBuffer.get(intBufferId++);
 				int chunkY = intBuffer.get(intBufferId++);
-				int val = intBuffer.get(intBufferId++);
-				GraphicsBody graphicsBody = getChunk(chunkX, chunkY);
-				boolean flag = false;
-				for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i) {
-					graphicsBody.mUnits[val][i].clear();
-					int num = intBuffer.get(intBufferId++);
-					flag |= num > 0;
-					for (int j = 0; j < num; ++j)
-						for (int k = 0; k < ELEMENTS_PER_UNIT_TEXTURE; ++k)
-							graphicsBody.mUnits[val][i].push(floatBuffer.get(floatBufferId++));
-				}
-				if (flag)
-					graphicsBody.mUnitsKeys.set(val);
-				else
-					graphicsBody.mUnitsKeys.remove(val);
+				mCurrentGraphicsBody = getChunk(chunkX, chunkY);
 				break;
 			}
-			case COMMAND_UPDATE_UNIT_DYNAMIC: {
+			case COMMAND_SET_DYNAMIC: {
 				int key = intBuffer.get(intBufferId++);
+				mCurrentGraphicsBody = (GraphicsBody) mDynamics.get(key);
+				break;
+			}
+			case COMMAND_UPDATE_UNIT: {
 				int val = intBuffer.get(intBufferId++);
-				GraphicsBody graphicsBody = (GraphicsBody) mDynamics.get(key);
 				boolean flag = false;
 				for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i) {
-					graphicsBody.mUnits[val][i].clear();
+					mCurrentGraphicsBody.mUnits[val][i].clear();
 					int num = intBuffer.get(intBufferId++);
 					flag |= num > 0;
 					for (int j = 0; j < num; ++j)
 						for (int k = 0; k < ELEMENTS_PER_UNIT_TEXTURE; ++k)
-							graphicsBody.mUnits[val][i].push(floatBuffer.get(floatBufferId++));
+							mCurrentGraphicsBody.mUnits[val][i].push(floatBuffer
+									.get(floatBufferId++));
 				}
 				if (flag)
-					graphicsBody.mUnitsKeys.set(val);
+					mCurrentGraphicsBody.mUnitsKeys.set(val);
 				else
-					graphicsBody.mUnitsKeys.remove(val);
-				break;
-			}
-			case COMMAND_UPDATE_UNIT_LIGHT_CORNERS: {
-				int chunkX = intBuffer.get(intBufferId++);
-				int chunkY = intBuffer.get(intBufferId++);
-				int val = intBuffer.get(intBufferId++);
-				GraphicsBody graphicsBody = getChunk(chunkX, chunkY);
-				int j = val << LIGHT_CORNERS_SIZE_LOG;
-				for (int i = 0; i < LIGHT_CORNERS_SIZE; ++i)
-					graphicsBody.mUnitsLightCorners[j + i] = floatBuffer.get(floatBufferId++);
+					mCurrentGraphicsBody.mUnitsKeys.remove(val);
 				break;
 			}
 			case COMMAND_MOVE_CAMERA: {
@@ -404,24 +378,23 @@ public final class GraphicsModule {
 			long pTime) {
 
 		TimeMeasure.sM13.start();
-		while (pTime - mLastTime - mAccumulatedTime >= Settings.TIME_STEP_MILLIS) {
+		while (true) {
 			GraphicsBuffer graphicsBuffer;
 			synchronized (this) {
-				if (mUpdates.size() == 0)
+				if (mUpdates.size() == 0 || mNextTime >= pTime)
 					break;
 				graphicsBuffer = (GraphicsBuffer) mUpdates.shift();
+				mLastTime = mNextTime;
+				mNextTime = graphicsBuffer.mTime;
 			}
 			tick(graphicsBuffer);
 			GraphicsBuffer.recycle(graphicsBuffer);
-			mAccumulatedTime += Settings.TIME_STEP_MILLIS;
-			long millis = (long) mAccumulatedTime;
-			mAccumulatedTime -= millis;
-			mLastTime += millis;
 		}
 		TimeMeasure.sM13.end();
 
 		TimeMeasure.sM14.start();
-		float timeRatio = (pTime - mLastTime - mAccumulatedTime) / Settings.TIME_STEP_MILLIS;
+		long d = mNextTime - mLastTime;
+		float timeRatio = d == 0 ? 0 : (pTime - mLastTime) / (float) d;
 		float timeOneMinusRatio = 1f - timeRatio;
 
 		float cameraAngle = mCameraNextAngle * timeRatio + mCameraAngle * timeOneMinusRatio;
@@ -483,62 +456,11 @@ public final class GraphicsModule {
 						float[] data = dynamic.mUnits[val][layer].data();
 						int n = dynamic.mUnits[val][layer].size();
 						for (int k = 0; k < n; k += ELEMENTS_PER_UNIT_VERTEX) {
-							float tmpX = data[k] * c - data[k + 1] * s;
-							float tmpY = data[k] * s + data[k + 1] * c;
-							renderBuffer.push((screenX + tmpX) * cellSize);
-							renderBuffer.push((screenY + tmpY) * cellSize);
-							tmpX += x;
-							tmpY += y;
-							int posX = MathUtils.floor(tmpX);
-							int posY = MathUtils.floor(tmpY);
-							tmpX -= posX;
-							tmpY -= posY;
-							GraphicsBody chunk =
-									getChunk((posX + mOffsetX) >> CHUNK_SIZE_LOG,
-											(posY + mOffsetY) >> CHUNK_SIZE_LOG);
-							float lightR = 0, lightG = 0, lightB = 0;
-							if (chunk != null) {
-								posX &= CHUNK_SIZE_MASK;
-								posY &= CHUNK_SIZE_MASK;
-								int cornerId =
-										(posX | (posY << CHUNK_SIZE_LOG) | (z << CHUNK_SQUARE_LOG)) << LIGHT_CORNERS_SIZE_LOG;
-								float tmpXOneMinus = 1.0f - tmpX;
-								float tmpYOneMinus = 1.0f - tmpY;
-								{
-									float t =
-											tmpXOneMinus * chunk.mUnitsLightCorners[cornerId + 4]
-													+ tmpX * chunk.mUnitsLightCorners[cornerId];
-									float b =
-											tmpXOneMinus * chunk.mUnitsLightCorners[cornerId + 8]
-													+ tmpX
-													* chunk.mUnitsLightCorners[cornerId + 12];
-									lightR = tmpYOneMinus * b + tmpY * t;
-								}
-								{
-									float t =
-											tmpXOneMinus * chunk.mUnitsLightCorners[cornerId + 5]
-													+ tmpX * chunk.mUnitsLightCorners[cornerId + 1];
-									float b =
-											tmpXOneMinus * chunk.mUnitsLightCorners[cornerId + 9]
-													+ tmpX
-													* chunk.mUnitsLightCorners[cornerId + 13];
-									lightG = tmpYOneMinus * b + tmpY * t;
-								}
-								{
-									float t =
-											tmpXOneMinus * chunk.mUnitsLightCorners[cornerId + 6]
-													+ tmpX * chunk.mUnitsLightCorners[cornerId + 2];
-									float b =
-											tmpXOneMinus * chunk.mUnitsLightCorners[cornerId + 10]
-													+ tmpX
-													* chunk.mUnitsLightCorners[cornerId + 14];
-									lightB = tmpYOneMinus * b + tmpY * t;
-								}
-							}
-							renderBuffer.push(Color.toFloatBits(data[k + 2] * lightR, data[k + 3]
-									* lightG, data[k + 4] * lightB, data[k + 5]));
-							renderBuffer.push(data[k + 6]);
-							renderBuffer.push(data[k + 7]);
+							renderBuffer.push((screenX + data[k] * c - data[k + 1] * s) * cellSize);
+							renderBuffer.push((screenY + data[k] * s + data[k + 1] * c) * cellSize);
+							renderBuffer.push(data[k + 2]);
+							renderBuffer.push(data[k + 3]);
+							renderBuffer.push(data[k + 4]);
 						}
 					}
 				}
@@ -546,79 +468,43 @@ public final class GraphicsModule {
 		}
 
 		for (int z = Settings.CHUNK_MIN_DEPTH; z <= Settings.CHUNK_MAX_DEPTH; ++z) {
-			int renderBufferOffset = z * Settings.LAYERS_PER_DEPTH;
-			float depthFactor = Settings.DEPTH_FACTORS[z];
-			float depthWidth = pWidth * depthFactor;
-			float depthHeight = pHeight * depthFactor;
-			float cellSize = pCellSize / depthFactor;
-			int tmp1 = MathUtils.floor(cameraX - depthWidth / 2);
-			int tmp2 = MathUtils.floor(cameraX + depthWidth / 2);
-			int tmp3 = MathUtils.floor(cameraY - depthHeight / 2);
-			int tmp4 = MathUtils.floor(cameraY + depthHeight / 2);
+			final int renderBufferOffset = z * Settings.LAYERS_PER_DEPTH;
+			final float depthFactor = Settings.DEPTH_FACTORS[z];
+			final float depthWidth = pWidth * depthFactor;
+			final float depthHeight = pHeight * depthFactor;
+			final float cellSize = pCellSize / depthFactor;
+			final int tmp1 = MathUtils.floor(cameraX - depthWidth / 2);
+			final int tmp2 = MathUtils.floor(cameraX + depthWidth / 2);
+			final int tmp3 = MathUtils.floor(cameraY - depthHeight / 2);
+			final int tmp4 = MathUtils.floor(cameraY + depthHeight / 2);
 			for (int row = row1; row <= row2; ++row)
 				for (int col = col1; col <= col2; ++col) {
-					GraphicsBody chunk = getChunk(col, row);
+					final GraphicsBody chunk = getChunk(col, row);
 					if (chunk != null) {
-						int chunkX = (col << Settings.CHUNK_SIZE_LOG) - mOffsetX;
-						int chunkY = (row << Settings.CHUNK_SIZE_LOG) - mOffsetY;
+						final int chunkX = (col << Settings.CHUNK_SIZE_LOG) - mOffsetX;
+						final int chunkY = (row << Settings.CHUNK_SIZE_LOG) - mOffsetY;
 
-						int x1 = Math.max(CHUNK_LEFT, tmp1 - chunkX);
-						int x2 = Math.min(CHUNK_RIGHT, tmp2 - chunkX);
-						int y1 = Math.max(CHUNK_BOTTOM, tmp3 - chunkY);
-						int y2 = Math.min(CHUNK_TOP, tmp4 - chunkY);
+						final int x1 = Math.max(CHUNK_LEFT, tmp1 - chunkX);
+						final int x2 = Math.min(CHUNK_RIGHT, tmp2 - chunkX);
+						final int y1 = Math.max(CHUNK_BOTTOM, tmp3 - chunkY);
+						final int y2 = Math.min(CHUNK_TOP, tmp4 - chunkY);
+
+						final FloatArray[][] units = chunk.mUnits;
 
 						for (int y = y1; y <= y2; ++y)
 							for (int x = x1; x <= x2; ++x) {
-								int val = x | (y << CHUNK_SIZE_LOG) | (z << CHUNK_SQUARE_LOG);
+								final int val = x | (y << CHUNK_SIZE_LOG) | (z << CHUNK_SQUARE_LOG);
 								for (int layer = 0; layer < Settings.LAYERS_PER_DEPTH; ++layer) {
-									FloatArray renderBuffer =
+									final FloatArray renderBuffer =
 											pRenderBuffers[renderBufferOffset + layer];
-									float[] data = chunk.mUnits[val][layer].data();
-									int n = chunk.mUnits[val][layer].size();
+									final float[] data = units[val][layer].data();
+									final int n = units[val][layer].size();
 									for (int k = 0; k < n; k += ELEMENTS_PER_UNIT_VERTEX) {
-										float tmpX = data[k];
-										float tmpY = data[k + 1];
-										renderBuffer.push((tmpX - cameraX) * cellSize);
-										renderBuffer.push((tmpY - cameraY) * cellSize);
-										int posX = chunkX + x;
-										int posY = chunkY + y;
-										tmpX -= posX;
-										tmpY -= posY;
-										float lightR, lightG, lightB;
-										int cornerId = val << LIGHT_CORNERS_SIZE_LOG;
-										float tmpXOneMinus = 1.0f - tmpX;
-										float tmpYOneMinus = 1.0f - tmpY;
-										float[] lightCorners = chunk.mUnitsLightCorners;
-
-										float tr =
-												tmpXOneMinus * lightCorners[cornerId + 4] + tmpX
-														* lightCorners[cornerId];
-										float br =
-												tmpXOneMinus * lightCorners[cornerId + 8] + tmpX
-														* lightCorners[cornerId + 12];
-										lightR = tmpYOneMinus * br + tmpY * tr;
-
-										float tg =
-												tmpXOneMinus * lightCorners[cornerId + 5] + tmpX
-														* lightCorners[cornerId + 1];
-										float bg =
-												tmpXOneMinus * lightCorners[cornerId + 9] + tmpX
-														* lightCorners[cornerId + 13];
-										lightG = tmpYOneMinus * bg + tmpY * tg;
-
-										float tb =
-												tmpXOneMinus * lightCorners[cornerId + 6] + tmpX
-														* lightCorners[cornerId + 2];
-										float bb =
-												tmpXOneMinus * lightCorners[cornerId + 10] + tmpX
-														* lightCorners[cornerId + 14];
-										lightB = tmpYOneMinus * bb + tmpY * tb;
-
-										renderBuffer.push(Color.toFloatBits(data[k + 2] * lightR,
-												data[k + 3] * lightG, data[k + 4] * lightB,
-												data[k + 5]));
-										renderBuffer.push(data[k + 6]);
-										renderBuffer.push(data[k + 7]);
+										renderBuffer.push((data[k] - cameraX) * cellSize);
+										renderBuffer.push((data[k + 1] - cameraY) * cellSize);
+										renderBuffer.push(data[k + 2]);
+										renderBuffer.push(data[k + 3]);
+										renderBuffer.push(data[k + 4]);
 									}
 								}
 							}
@@ -638,6 +524,7 @@ public final class GraphicsModule {
 
 		private final IntArray mIntBuffer = IntArray.obtain(CAPACITY_BUFFERS);
 		private final FloatArray mFloatBuffer = FloatArray.obtain(CAPACITY_BUFFERS);
+		private long mTime;
 
 		private GraphicsBuffer() {
 		}
@@ -678,8 +565,6 @@ public final class GraphicsModule {
 
 		private final FloatArray[][] mUnits =
 				new FloatArray[CHUNK_VOLUME][Settings.LAYERS_PER_DEPTH];
-		private final float[] mUnitsLightCorners =
-				new float[CHUNK_VOLUME << LIGHT_CORNERS_SIZE_LOG];
 		private final LinkedIntTable mUnitsKeys = LinkedIntTable.obtain(CHUNK_VOLUME);
 		private float mCenterX;
 		private float mCenterY;

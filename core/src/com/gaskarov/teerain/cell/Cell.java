@@ -62,7 +62,7 @@ public abstract class Cell {
 	public void tick(Cellularity pCellularity, int pX, int pY, int pZ) {
 	}
 
-	public void render(Cellularity pCellularity, int pX, int pY, int pZ) {
+	public void render(Cellularity pCellularity, int pX, int pY, int pZ, float pCos, float pSin) {
 		for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i)
 			switch (i) {
 			default:

@@ -64,9 +64,8 @@ public final class HUDTissularity extends Tissularity {
 	}
 
 	@Override
-	public void attach(Organularity pOrganularity, long pUpdateLastTime,
-			float pUpdateAccumulatedTime) {
-		super.attach(pOrganularity, pUpdateLastTime, pUpdateAccumulatedTime);
+	public void attach(Organularity pOrganularity) {
+		super.attach(pOrganularity);
 		addVisitor(0, 0, 2, 2);
 		waitChunks();
 	}
@@ -78,7 +77,19 @@ public final class HUDTissularity extends Tissularity {
 	}
 
 	@Override
+	public void tick() {
+		if (mOrganularity == null)
+			return;
+		super.tick();
+		OrthographicCamera camera = mOrganularity.getCamera();
+		mCameraX = 5.0f - mOffsetX;
+		mCameraY = 0.0f - mOffsetY + camera.viewportHeight / Settings.TILE_RENDER_HUD / 2;
+	}
+
+	@Override
 	public void render(long pTime) {
+		if (mOrganularity == null)
+			return;
 		OrthographicCamera camera = mOrganularity.getCamera();
 		render(Settings.TILE_RENDER_HUD, camera.viewportWidth / Settings.TILE_RENDER_HUD,
 				camera.viewportHeight / Settings.TILE_RENDER_HUD, pTime);

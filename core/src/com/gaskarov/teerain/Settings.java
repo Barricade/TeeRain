@@ -24,7 +24,7 @@ public final class Settings {
 	public static final int MAX_CENTER_OFFSET = 1024;
 	public static final int STEPS_PER_TICK = 2;
 	public static final long WAIT_LOOP_DELAY = 1;
-	public static final long RENDER_DELAY = 30;
+	public static final long RENDER_DELAY = 50;
 
 	public static final float GRAVITY_X = 0.0f;
 	public static final float GRAVITY_Y = -40.0f;
@@ -157,8 +157,8 @@ public final class Settings {
 	public static final int[] CELL_UPDATE_Y = new int[] { -1, -1, -1, 0, 0, 0, 1, 1, 1, 0, 0 };
 	public static final int[] CELL_UPDATE_Z = new int[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1 };
 
-	public static final int VISITOR_HEIGHT = 40;
-	public static final int VISITOR_WIDTH = 40;
+	public static final int VISITOR_HEIGHT = 64;
+	public static final int VISITOR_WIDTH = 64;
 
 	public static final int SPRITE_BATCH_SIZE = 5460;
 	public static final float TILE_W = 1 / 16f;
@@ -181,7 +181,7 @@ public final class Settings {
 							* DEPTH_FACTOR,
 					DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR * DEPTH_FACTOR
 							* DEPTH_FACTOR * DEPTH_FACTOR };
-	public static final float TILE_RENDER = 2f / 30;
+	public static final float TILE_RENDER = 2f / 48;
 	public static final boolean BOX2D_DEBUG_DRAW = false;
 	public static final float TILE_RENDER_HUD = 2f / 20;
 

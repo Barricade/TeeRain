@@ -183,11 +183,13 @@ public final class TeeCell extends Cell {
 	}
 
 	@Override
-	public void render(Cellularity pCellularity, int pX, int pY, int pZ) {
+	public void render(Cellularity pCellularity, int pX, int pY, int pZ, float pCos, float pSin) {
 		for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i)
 			switch (i) {
 			case LAYER_BODY: {
-				int count = GraphicsUtils.render(this, pCellularity, pX, pY, pZ, TILE_X, TILE_Y);
+				int count =
+						GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pCos, pSin, TILE_X,
+								TILE_Y);
 				GraphicsUtils.count(pCellularity, count);
 				break;
 			}
@@ -197,9 +199,9 @@ public final class TeeCell extends Cell {
 				float eyesX = 0.5f + mControlOrganoid.getEyesX() / 8;
 				float eyesY = 0.5f + mControlOrganoid.getEyesY() / 8;
 				int count =
-						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, TILE_EYES_X,
-								TILE_EYES_Y, Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, eyesX,
-								eyesY, eyesW, eyesH, 1f, 0f);
+						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, pCos, pSin,
+								TILE_EYES_X, TILE_EYES_Y, Settings.TILE_HALF_W,
+								Settings.TILE_QUARTER_H, eyesX, eyesY, eyesW, eyesH, 1f, 0f);
 
 				float footX, footY, footR;
 				float steps = mControlOrganoid.getSteps();
@@ -222,10 +224,10 @@ public final class TeeCell extends Cell {
 				float footW = 0.5f;
 				float footH = 0.25f;
 				count +=
-						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, TILE_FOOT_X,
-								TILE_FOOT_Y, Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX,
-								footY, footW, footH, (float) Math.cos(footR), (float) Math
-										.sin(footR));
+						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, pCos, pSin,
+								TILE_FOOT_X, TILE_FOOT_Y, Settings.TILE_HALF_W,
+								Settings.TILE_QUARTER_H, footX, footY, footW, footH, (float) Math
+										.cos(footR), (float) Math.sin(footR));
 				GraphicsUtils.count(pCellularity, count);
 				break;
 			}
@@ -252,10 +254,10 @@ public final class TeeCell extends Cell {
 				float footW = 0.5f;
 				float footH = 0.25f;
 				int count =
-						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, TILE_FOOT_X,
-								TILE_FOOT_Y, Settings.TILE_HALF_W, Settings.TILE_QUARTER_H, footX,
-								footY, footW, footH, (float) Math.cos(footR), (float) Math
-										.sin(footR));
+						GraphicsUtils.renderTexture(this, pCellularity, pX, pY, pZ, pCos, pSin,
+								TILE_FOOT_X, TILE_FOOT_Y, Settings.TILE_HALF_W,
+								Settings.TILE_QUARTER_H, footX, footY, footW, footH, (float) Math
+										.cos(footR), (float) Math.sin(footR));
 				GraphicsUtils.count(pCellularity, count);
 				break;
 			}

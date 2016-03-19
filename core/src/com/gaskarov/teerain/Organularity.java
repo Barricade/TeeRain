@@ -64,7 +64,7 @@ public final class Organularity implements ContactListener {
 	private OperationSolver mUpdateOperationSolver;
 
 	private LinkedHashTable mTissularities;
-	private volatile Tissularity mMainTissularity;
+	private Tissularity mMainTissularity;
 
 	private long mUpdateLastTime;
 	private float mUpdateAccumulatedTime;
@@ -108,6 +108,10 @@ public final class Organularity implements ContactListener {
 
 	public World getWorld() {
 		return mWorld;
+	}
+
+	public long getUpdateLastTime() {
+		return mUpdateLastTime;
 	}
 
 	// ===========================================================
@@ -283,7 +287,7 @@ public final class Organularity implements ContactListener {
 
 	public synchronized void pushTissularity(Tissularity pTissularity) {
 		mTissularities.set(pTissularity);
-		pTissularity.attach(this, mUpdateLastTime, mUpdateAccumulatedTime);
+		pTissularity.attach(this);
 	}
 
 	public synchronized void removeTissularity(Tissularity pTissularity) {
@@ -407,6 +411,10 @@ public final class Organularity implements ContactListener {
 	}
 
 	private void tick() {
+		mUpdateAccumulatedTime += Settings.TIME_STEP_MILLIS;
+		long millis = (long) mUpdateAccumulatedTime;
+		mUpdateAccumulatedTime -= millis;
+		mUpdateLastTime += millis;
 		synchronized (mInputMonitor) {
 			IntArray tmp = mInputBufferA;
 			mInputBufferA = mInputBufferB;
@@ -476,10 +484,6 @@ public final class Organularity implements ContactListener {
 		mWorld.step(Settings.TIME_STEP, Settings.VELOCITY_ITERATIONS, Settings.POSITION_ITERATIONS);
 		TimeMeasure.sM8.end();
 		mMainTissularity.tick();
-		mUpdateAccumulatedTime += Settings.TIME_STEP_MILLIS;
-		long millis = (long) mUpdateAccumulatedTime;
-		mUpdateAccumulatedTime -= millis;
-		mUpdateLastTime += millis;
 		TimeMeasure.sM1.end();
 		TimeMeasure.end();
 	}
@@ -509,7 +513,7 @@ public final class Organularity implements ContactListener {
 											- mOrganularity.mUpdateLastTime
 											- Settings.TIME_STEP_MILLIS - mOrganularity.mUpdateAccumulatedTime));
 					if (time > 30) {
-						Gdx.app.log("TAG", "" + time);
+						Gdx.app.log("TAG", "# " + time);
 					}
 					if (time <= 0)
 						break;

@@ -68,22 +68,23 @@ public final class MainTissularity extends Tissularity {
 	}
 
 	@Override
-	public void attach(Organularity pOrganularity, long pUpdateLastTime,
-			float pUpdateAccumulatedTime) {
-		super.attach(pOrganularity, pUpdateLastTime, pUpdateAccumulatedTime);
-		pOrganularity.pushTissularity(mGameTissularity);
+	public void attach(Organularity pOrganularity) {
+		super.attach(pOrganularity);
 		pOrganularity.pushTissularity(mHUDTissularity);
+		pOrganularity.pushTissularity(mGameTissularity);
 	}
 
 	@Override
 	public void detach() {
-		mOrganularity.removeTissularity(mHUDTissularity);
 		mOrganularity.removeTissularity(mGameTissularity);
+		mOrganularity.removeTissularity(mHUDTissularity);
 		super.detach();
 	}
 
 	@Override
 	public void tick() {
+		if (mOrganularity == null)
+			return;
 		super.tick();
 		mGameTissularity.tick();
 		mHUDTissularity.tick();
@@ -91,10 +92,12 @@ public final class MainTissularity extends Tissularity {
 
 	@Override
 	public void render(long pTime) {
+		if (mOrganularity == null)
+			return;
 		SpriteBatch spriteBatch = mOrganularity.getSpriteBatch();
 
 		TimeMeasure.sM10.start();
-		Gdx.gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		Gdx.gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		TimeMeasure.sM10.end();
 
@@ -118,12 +121,14 @@ public final class MainTissularity extends Tissularity {
 		float h = pHeight;
 		float aspectRatio = w / h;
 
-		OrthographicCamera camera = mOrganularity.getCamera();
-		camera.viewportWidth = 2f * Math.min(aspectRatio, 1f);
-		camera.viewportHeight = 2f / Math.max(aspectRatio, 1f);
-		camera.update();
+		synchronized (mOrganularity) {
+			OrthographicCamera camera = mOrganularity.getCamera();
+			camera.viewportWidth = 2f * Math.min(aspectRatio, 1f);
+			camera.viewportHeight = 2f / Math.max(aspectRatio, 1f);
+			camera.update();
 
-		mOrganularity.getSpriteBatch().setProjectionMatrix(mOrganularity.getCamera().combined);
+			mOrganularity.getSpriteBatch().setProjectionMatrix(mOrganularity.getCamera().combined);
+		}
 	}
 
 	@Override

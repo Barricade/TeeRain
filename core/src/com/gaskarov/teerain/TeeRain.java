@@ -73,7 +73,7 @@ public final class TeeRain extends ApplicationAdapter implements InputProcessor 
 
 	@Override
 	public void render() {
-		if (System.currentTimeMillis() - timetime > 20)
+		if (System.currentTimeMillis() - timetime > 50)
 			Gdx.app.log("TAG", "BAD: " + (System.currentTimeMillis() - timetime));
 		timetime = System.currentTimeMillis();
 		mFPSLogger.log();

@@ -96,21 +96,15 @@ public final class FloatArray {
 	}
 
 	public void push(float pVal) {
-		while (mSize == mData.length) {
-			float[] oldPool = mData;
-			mData = ArrayUtils.copyOf(oldPool, oldPool.length == 0 ? 1 : oldPool.length << 1);
-			BinaryFloatArrayPool.recycle(oldPool);
-		}
+		if (mSize == mData.length)
+			resize();
 		mData[mSize++] = pVal;
 	}
 
 	public void pushArray(int pN) {
 		mSize += pN;
-		while (mSize > mData.length) {
-			float[] oldPool = mData;
-			mData = ArrayUtils.copyOf(oldPool, oldPool.length == 0 ? 1 : oldPool.length << 1);
-			BinaryFloatArrayPool.recycle(oldPool);
-		}
+		while (mSize > mData.length)
+			resize();
 	}
 
 	public void pushArray(FloatArray pArray) {
@@ -141,6 +135,12 @@ public final class FloatArray {
 
 	public float[] data() {
 		return mData;
+	}
+
+	private void resize() {
+		float[] oldPool = mData;
+		mData = ArrayUtils.copyOf(oldPool, oldPool.length == 0 ? 1 : oldPool.length << 1);
+		BinaryFloatArrayPool.recycle(oldPool);
 	}
 
 	// ===========================================================

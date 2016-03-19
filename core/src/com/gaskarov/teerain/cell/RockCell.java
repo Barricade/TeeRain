@@ -164,14 +164,14 @@ public final class RockCell extends Cell {
 	}
 
 	@Override
-	public void render(Cellularity pCellularity, int pX, int pY, int pZ) {
+	public void render(Cellularity pCellularity, int pX, int pY, int pZ, float pCos, float pSin) {
 		for (int i = 0; i < Settings.LAYERS_PER_DEPTH; ++i)
 			switch (i) {
 			case LAYER: {
 				int count =
-						GraphicsUtils.render(this, pCellularity, pX, pY, pZ, TILE_N_X, TILE_N_Y,
-								TILE_S_X, TILE_S_Y, TILE_H_X, TILE_H_Y, TILE_V_X, TILE_V_Y,
-								TILE_B_X, TILE_B_Y);
+						GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pCos, pSin, TILE_N_X,
+								TILE_N_Y, TILE_S_X, TILE_S_Y, TILE_H_X, TILE_H_Y, TILE_V_X,
+								TILE_V_Y, TILE_B_X, TILE_B_Y);
 				GraphicsUtils.count(pCellularity, count);
 				break;
 			}
