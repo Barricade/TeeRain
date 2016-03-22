@@ -4,8 +4,10 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.FPSLogger;
-import com.gaskarov.teerain.tissularity.MainTissularity;
-import com.gaskarov.teerain.util.TimeMeasure;
+import com.gaskarov.teerain.core.Organularity;
+import com.gaskarov.teerain.core.util.Resources;
+import com.gaskarov.teerain.debug.TimeMeasure;
+import com.gaskarov.teerain.game.MainTissularity;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
