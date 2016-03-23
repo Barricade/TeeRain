@@ -9,6 +9,7 @@ import static com.gaskarov.teerain.core.util.Settings.CHUNK_DEPTH;
 import static com.gaskarov.teerain.core.util.Settings.CHUNK_DEPTH_LOG;
 import static com.gaskarov.teerain.core.util.Settings.CHUNK_DEPTH_SKY;
 import static com.gaskarov.teerain.core.util.Settings.CHUNK_DEPTH_VACUUM;
+import static com.gaskarov.teerain.core.util.Settings.CHUNK_HSIZE;
 import static com.gaskarov.teerain.core.util.Settings.CHUNK_LEFT;
 import static com.gaskarov.teerain.core.util.Settings.CHUNK_MAX_DEPTH;
 import static com.gaskarov.teerain.core.util.Settings.CHUNK_MIN_DEPTH;
@@ -253,7 +254,7 @@ public final class Cellularity {
 			else
 				return chunk.getDefaultCell(localX, localY, pZ);
 		}
-		return VoidCell.obtain();
+		return isChunk() ? VoidCell.obtain() : VacuumCell.obtain();
 	}
 
 	public void setCell(int pX, int pY, int pZ, Cell pCell) {
@@ -530,8 +531,9 @@ public final class Cellularity {
 			mDropMinY = mDropMaxY = y0;
 			mDropCount = 0;
 			if (dropDfs(x0, y0, z0) && (isStatic || mDropCurrent.size() != mCellsKeys.size())) {
-				mTmpVec2.set(mDropMinX + (CHUNK_SIZE >> 1), mDropMinY + (CHUNK_SIZE >> 1));
-				mTmpVec2.rotate(mMetaBody.getAngle());
+				int offset = isChunk() ? CHUNK_HSIZE : 0;
+				mTmpVec2.set(mDropMinX + offset, mDropMinY + offset);
+				mTmpVec2.rotateRad(mMetaBody.getAngle());
 				mTmpVec2.add(mMetaBody.getPositionX(), mMetaBody.getPositionY());
 				Cellularity cellularity =
 						Cellularity.obtain(BodyType.DynamicBody, mTmpVec2.x, mTmpVec2.y, mMetaBody
@@ -928,8 +930,12 @@ public final class Cellularity {
 			int posY = pY + vY;
 			int z = pZ + vZ;
 			Cellularity chunk = getChunk(posX, posY);
-			if (chunk == null)
-				return false;
+			if (chunk == null) {
+				if (isChunk())
+					return false;
+				else
+					continue;
+			}
 			if (CHUNK_MIN_DEPTH <= z && z <= CHUNK_MAX_DEPTH) {
 				int x = posX & CHUNK_SIZE_MASK;
 				int y = posY & CHUNK_SIZE_MASK;

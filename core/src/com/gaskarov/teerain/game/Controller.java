@@ -139,6 +139,30 @@ public final class Controller {
 		case Keys.SPACE:
 			jumpDown();
 			break;
+		case Keys.NUM_1:
+			mPlayer.setUseItem(1);
+			break;
+		case Keys.NUM_2:
+			mPlayer.setUseItem(2);
+			break;
+		case Keys.NUM_3:
+			mPlayer.setUseItem(3);
+			break;
+		case Keys.NUM_4:
+			mPlayer.setUseItem(4);
+			break;
+		case Keys.NUM_5:
+			mPlayer.setUseItem(5);
+			break;
+		case Keys.NUM_6:
+			mPlayer.setUseItem(6);
+			break;
+		case Keys.NUM_7:
+			mPlayer.setUseItem(7);
+			break;
+		case Keys.NUM_8:
+			mPlayer.setUseItem(8);
+			break;
 		}
 	}
 

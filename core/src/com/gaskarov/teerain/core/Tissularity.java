@@ -2,6 +2,7 @@ package com.gaskarov.teerain.core;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.gaskarov.teerain.core.util.GraphicsModule;
+import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Resources;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.debug.TimeMeasure;
@@ -9,6 +10,7 @@ import com.gaskarov.util.common.IntVector1;
 import com.gaskarov.util.common.IntVector2;
 import com.gaskarov.util.common.IntVector3;
 import com.gaskarov.util.common.KeyValuePair;
+import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.common.Pair;
 import com.gaskarov.util.constants.ArrayConstants;
 import com.gaskarov.util.constants.GlobalConstants;
@@ -30,11 +32,25 @@ public abstract class Tissularity {
 	// Constants
 	// ===========================================================
 
+	public static final int RAYCAST_TYPE_START = 0;
+	public static final int RAYCAST_TYPE_MIDDLE = 1;
+	public static final int RAYCAST_TYPE_END = 2;
+
 	// ===========================================================
 	// Fields
 	// ===========================================================
 
 	private final IntVector2 mVec2 = IntVector2.obtain(0, 0);
+
+	private int mRayCastBlockCellX;
+	private int mRayCastBlockCellY;
+	private int mRayCastPreBlockCellX;
+	private int mRayCastPreBlockCellY;
+	private float mRayCastBlockX;
+	private float mRayCastBlockY;
+	private int mRayCastType;
+	private float mRayCastBlockDistance2;
+	private Cellularity mRayCastBlockCellularity;
 
 	protected Organularity mOrganularity;
 
@@ -65,6 +81,38 @@ public abstract class Tissularity {
 	// ===========================================================
 	// Getter & Setter
 	// ===========================================================
+
+	public int getRayCastBlockCellX() {
+		return mRayCastBlockCellX;
+	}
+
+	public int getRayCastBlockCellY() {
+		return mRayCastBlockCellY;
+	}
+
+	public int getRayCastPreBlockCellX() {
+		return mRayCastPreBlockCellX;
+	}
+
+	public int getRayCastPreBlockCellY() {
+		return mRayCastPreBlockCellY;
+	}
+
+	public float getRayCastBlockX() {
+		return mRayCastBlockX;
+	}
+
+	public float getRayCastBlockY() {
+		return mRayCastBlockY;
+	}
+
+	public int getRayCastType() {
+		return mRayCastType;
+	}
+
+	public Cellularity getRayCastBlockCellularity() {
+		return mRayCastBlockCellularity;
+	}
 
 	public Organularity getOrganularity() {
 		return mOrganularity;
@@ -499,6 +547,146 @@ public abstract class Tissularity {
 	public Cellularity getChunk(int pX, int pY) {
 		KeyValuePair pair = (KeyValuePair) mChunks.get(mVec2.set(pX, pY));
 		return pair != null ? ((ChunkHolder) pair.mB).chunk() : null;
+	}
+
+	public Cell getCell(int pX, int pY, int pZ) {
+		Cellularity chunk = getChunk(pX >> Settings.CHUNK_SIZE_LOG, pY >> Settings.CHUNK_SIZE_LOG);
+		return chunk != null ? chunk.getCell(pX & Settings.CHUNK_SIZE_MASK, pY
+				& Settings.CHUNK_SIZE_MASK, pZ) : VoidCell.obtain();
+	}
+
+	public void setCell(int pX, int pY, int pZ, Cell pCell) {
+		Cellularity chunk = getChunk(pX >> Settings.CHUNK_SIZE_LOG, pY >> Settings.CHUNK_SIZE_LOG);
+		if (chunk != null)
+			chunk.setCell(pX & Settings.CHUNK_SIZE_MASK, pY & Settings.CHUNK_SIZE_MASK, pZ, pCell);
+		else
+			pCell.recycle();
+	}
+
+	public void raycastCell(int pZ, float pStartX, float pStartY, float pEndX, float pEndY,
+			Cellularity pIgnore, Cellularity pCellularity) {
+
+		int offsetX = pCellularity == null ? mOffsetX : 0;
+		int offsetY = pCellularity == null ? mOffsetY : 0;
+
+		int startX = MathUtils.floor(pStartX);
+		int startY = MathUtils.floor(pStartY);
+
+		{
+			Cell cell = getCell(startX + offsetX, startY + offsetY, pZ);
+			if (cell.isBlocking()) {
+				mRayCastBlockCellX = startX + offsetX;
+				mRayCastBlockCellY = startY + offsetY;
+				mRayCastBlockDistance2 = 0;
+				mRayCastType = RAYCAST_TYPE_START;
+				mRayCastBlockCellularity = pCellularity;
+				return;
+			}
+		}
+
+		int endX = MathUtils.floor(pEndX);
+		int endY = MathUtils.floor(pEndY);
+		float dx = pEndX - pStartX;
+		float dy = pEndY - pStartY;
+
+		if (pCellularity == null) {
+			mRayCastBlockCellX = endX + offsetX;
+			mRayCastBlockCellY = endY + offsetY;
+			mRayCastBlockDistance2 = dx * dx + dy * dy;
+			mRayCastType = RAYCAST_TYPE_END;
+			mRayCastBlockCellularity = pCellularity;
+		}
+
+		int vx = pStartX < pEndX ? 1 : -1;
+		int vy = pStartY < pEndY ? 1 : -1;
+
+		for (int posX = startX; posX != endX; posX += vx) {
+			int nextPosX = posX + vx;
+			float x = (posX + nextPosX + 1) * 0.5f;
+			float y = pStartY + (x - pStartX) / dx * dy;
+			int nextPosY = MathUtils.floor(y);
+			Cell cell =
+					pCellularity == null ? getCell(nextPosX + offsetX, nextPosY + offsetY, pZ)
+							: pCellularity.getCell(nextPosX, nextPosY, pZ);
+			if (cell.isBlocking()) {
+				float x1 = x - pStartX;
+				float y1 = y - pStartY;
+				float distance = x1 * x1 + y1 * y1;
+				if (distance < mRayCastBlockDistance2) {
+					mRayCastBlockCellX = nextPosX + offsetX;
+					mRayCastBlockCellY = nextPosY + offsetY;
+					mRayCastPreBlockCellX = posX + offsetX;
+					mRayCastPreBlockCellY = nextPosY + offsetY;
+					mRayCastBlockX = x;
+					mRayCastBlockY = y;
+					mRayCastBlockDistance2 = x1 * x1 + y1 * y1;
+					mRayCastType = RAYCAST_TYPE_MIDDLE;
+					mRayCastBlockCellularity = pCellularity;
+				}
+				break;
+			}
+		}
+
+		for (int posY = startY; posY != endY; posY += vy) {
+			int nextPosY = posY + vy;
+			float y = (posY + nextPosY + 1) * 0.5f;
+			float x = pStartX + (y - pStartY) / dy * dx;
+			int nextPosX = MathUtils.floor(x);
+			Cell cell =
+					pCellularity == null ? getCell(nextPosX + offsetX, nextPosY + offsetY, pZ)
+							: pCellularity.getCell(nextPosX, nextPosY, pZ);
+			if (cell.isBlocking()) {
+				float x1 = x - pStartX;
+				float y1 = y - pStartY;
+				float distance = x1 * x1 + y1 * y1;
+				if (distance < mRayCastBlockDistance2) {
+					mRayCastBlockCellX = nextPosX + offsetX;
+					mRayCastBlockCellY = nextPosY + offsetY;
+					mRayCastPreBlockCellX = nextPosX + offsetX;
+					mRayCastPreBlockCellY = posY + offsetY;
+					mRayCastBlockX = x;
+					mRayCastBlockY = y;
+					mRayCastBlockDistance2 = distance;
+					mRayCastType = RAYCAST_TYPE_MIDDLE;
+					mRayCastBlockCellularity = pCellularity;
+				}
+				break;
+			}
+		}
+
+		if (pCellularity == null) {
+			int left = (Math.min(startX, endX) >> Settings.CHUNK_SIZE_LOG) - 1;
+			int bottom = (Math.min(startY, endY) >> Settings.CHUNK_SIZE_LOG) - 1;
+			int right = (Math.min(startX, endX) >> Settings.CHUNK_SIZE_LOG) + 1;
+			int top = (Math.min(startY, endY) >> Settings.CHUNK_SIZE_LOG) + 1;
+			for (int i = bottom; i <= top; ++i)
+				for (int j = left; j <= right; ++j) {
+					Cellularity chunk = getChunk(j, i);
+					if (chunk != null) {
+						LinkedHashTable dynamics = chunk.getCellularities();
+						for (List.Node k = dynamics.begin(); k != dynamics.end(); k =
+								dynamics.next(k)) {
+							Cellularity dynamic = (Cellularity) dynamics.val(k);
+							if (dynamic != pIgnore) {
+								MetaBody body = dynamic.getBody();
+								float x1 = pStartX - body.getPositionX() - body.getOffsetX();
+								float y1 = pStartY - body.getPositionY() - body.getOffsetY();
+								float x2 = pEndX - body.getPositionX() - body.getOffsetX();
+								float y2 = pEndY - body.getPositionY() - body.getOffsetY();
+								float angle = -body.getAngle();
+								float c = (float) Math.cos(angle);
+								float s = (float) Math.sin(angle);
+								float dynamicStartX = c * x1 - s * y1 + Settings.CHUNK_HSIZE;
+								float dynamicStartY = s * x1 + c * y1 + Settings.CHUNK_HSIZE;
+								float dynamicEndX = c * x2 - s * y2 + Settings.CHUNK_HSIZE;
+								float dynamicEndY = s * x2 + c * y2 + Settings.CHUNK_HSIZE;
+								raycastCell(pZ, dynamicStartX, dynamicStartY, dynamicEndX,
+										dynamicEndY, pIgnore, dynamic);
+							}
+						}
+					}
+				}
+		}
 	}
 
 	protected void render(float pCellSize, float pWidth, float pHeight, long pTime) {

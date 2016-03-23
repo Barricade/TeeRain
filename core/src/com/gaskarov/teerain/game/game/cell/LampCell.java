@@ -3,6 +3,7 @@ package com.gaskarov.teerain.game.game.cell;
 import com.gaskarov.teerain.core.Cell;
 import com.gaskarov.teerain.core.Cellularity;
 import com.gaskarov.teerain.core.Tissularity;
+import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.game.GraphicsUtils;
 import com.gaskarov.teerain.game.Player;
@@ -208,6 +209,22 @@ public final class LampCell extends Cell {
 		if (clickChunk != null)
 			clickChunk.setCell(posX & Settings.CHUNK_SIZE_MASK, posY & Settings.CHUNK_SIZE_MASK, 0,
 					cpy());
+		MetaBody body = pCellularity.getBody();
+		float c = (float) Math.cos(body.getAngle());
+		float s = (float) Math.sin(body.getAngle());
+		float offset = pCellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
+		float x =
+				body.getOffsetX() + body.getPositionX() + (pX - offset + 0.5f) * c
+						- (pY - offset + 0.5f) * s;
+		float y =
+				body.getOffsetY() + body.getPositionY() + (pX - offset + 0.5f) * s
+						+ (pY - offset + 0.5f) * c;
+		pControlOrganoid.fastLookTo(pClickX - x, pClickY - y);
+	}
+
+	@Override
+	public boolean isBlocking() {
+		return true;
 	}
 
 	// ===========================================================

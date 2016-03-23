@@ -1,6 +1,5 @@
 package com.gaskarov.teerain.core;
 
-
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
  * All rights reserved.

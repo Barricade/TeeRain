@@ -139,6 +139,10 @@ public abstract class Cell {
 			float pClickY, ControlOrganoid pControlOrganoid, Player pPlayer, int pItemId) {
 	}
 
+	public boolean isBlocking() {
+		return false;
+	}
+
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================

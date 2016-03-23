@@ -427,15 +427,18 @@ public final class GraphicsModule {
 
 		for (int i = 0; i < mDynamics.size(); ++i) {
 			GraphicsBody dynamic = (GraphicsBody) mDynamics.getVal(i);
-			float massX =
-					dynamic.mNextMassCenterX * timeRatio + dynamic.mMassCenterX * timeOneMinusRatio;
-			float massY =
-					dynamic.mNextMassCenterY * timeRatio + dynamic.mMassCenterY * timeOneMinusRatio;
+			float localX = dynamic.mCenterX - dynamic.mMassCenterX;
+			float localY = dynamic.mCenterY - dynamic.mMassCenterY;
+			float tmpAngle = dynamic.mNextAngle - dynamic.mAngle;
+			float tmpC = (float) Math.cos(tmpAngle);
+			float tmpS = (float) Math.sin(tmpAngle);
+			float nextMassCenterX = dynamic.mNextCenterX - (tmpC * localX - tmpS * localY);
+			float nextMassCenterY = dynamic.mNextCenterY - (tmpS * localX + tmpC * localY);
+			float massX = nextMassCenterX * timeRatio + dynamic.mMassCenterX * timeOneMinusRatio;
+			float massY = nextMassCenterY * timeRatio + dynamic.mMassCenterY * timeOneMinusRatio;
 			float angle = dynamic.mNextAngle * timeRatio + dynamic.mAngle * timeOneMinusRatio;
 			float c = (float) Math.cos(angle);
 			float s = (float) Math.sin(angle);
-			float localX = dynamic.mCenterX - dynamic.mMassCenterX;
-			float localY = dynamic.mCenterY - dynamic.mMassCenterY;
 			float localC = (float) Math.cos(angle - dynamic.mAngle);
 			float localS = (float) Math.sin(angle - dynamic.mAngle);
 			float x = massX + localX * localC - localY * localS;

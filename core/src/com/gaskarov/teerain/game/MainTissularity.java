@@ -13,6 +13,7 @@ import com.gaskarov.teerain.debug.TimeMeasure;
 import com.gaskarov.teerain.game.game.GameTissularity;
 import com.gaskarov.teerain.game.game.cell.GrenadeGunCell;
 import com.gaskarov.teerain.game.game.cell.GroundCell;
+import com.gaskarov.teerain.game.game.cell.HammerCell;
 import com.gaskarov.teerain.game.game.cell.LampCell;
 import com.gaskarov.teerain.game.game.cell.RockCell;
 import com.gaskarov.teerain.game.hud.HUDTissularity;
@@ -78,6 +79,7 @@ public final class MainTissularity extends Tissularity {
 		mPlayer.setItem(2, RockCell.obtain());
 		mPlayer.setItem(3, LampCell.obtain());
 		mPlayer.setItem(4, GrenadeGunCell.obtain());
+		mPlayer.setItem(5, HammerCell.obtain());
 	}
 
 	@Override
