@@ -179,7 +179,7 @@ public final class Settings {
 			DEPTH_FACTORS[i] = DEPTH_FACTORS[i - 1] * DEPTH_FACTOR;
 	}
 
-	public static final float TILE_RENDER = 2f / 30;
+	public static final float TILE_RENDER = 2f / 120;
 	public static final boolean BOX2D_DEBUG_DRAW = false;
 	public static final float TILE_RENDER_HUD = 2f / 20;
 

@@ -563,6 +563,13 @@ public abstract class Tissularity {
 			pCell.recycle();
 	}
 
+	public void setLight(int pX, int pY, int pZ, int pR, int pG, int pB) {
+		Cellularity chunk = getChunk(pX >> Settings.CHUNK_SIZE_LOG, pY >> Settings.CHUNK_SIZE_LOG);
+		if (chunk != null)
+			chunk.setLight(pX & Settings.CHUNK_SIZE_MASK, pY & Settings.CHUNK_SIZE_MASK, pZ, pR,
+					pG, pB);
+	}
+
 	public void raycastCell(int pZ, float pStartX, float pStartY, float pEndX, float pEndY,
 			Cellularity pIgnore, Cellularity pCellularity) {
 

@@ -41,6 +41,7 @@ public final class MetaBody {
 	private float mOffsetX;
 	private float mOffsetY;
 	private short mGroupIndexOffset;
+	private boolean mFreezed;
 
 	// ===========================================================
 	// Constructors
@@ -104,6 +105,7 @@ public final class MetaBody {
 		obj.mOffsetX = 0;
 		obj.mOffsetY = 0;
 		obj.mGroupIndexOffset = 0;
+		obj.mFreezed = false;
 
 		return obj;
 	}
@@ -130,6 +132,22 @@ public final class MetaBody {
 		pObj.mFixtures = null;
 
 		recyclePure(pObj);
+	}
+
+	public void freeze() {
+		if (!mFreezed) {
+			mFreezed = true;
+			mBody.setType(BodyType.StaticBody);
+		}
+	}
+
+	public void unfreeze() {
+		if (mFreezed) {
+			mFreezed = false;
+			mBody.setLinearVelocity(mBodyDef.linearVelocity);
+			mBody.setAngularVelocity(mBodyDef.angularVelocity);
+			mBody.setType(BodyType.DynamicBody);
+		}
 	}
 
 	public void setOffset(float pX, float pY) {

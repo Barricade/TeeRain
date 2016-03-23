@@ -48,7 +48,7 @@ import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.game.game.cell.AirCell;
 import com.gaskarov.util.common.MathUtils;
-import com.gaskarov.util.constants.GlobalConstants;
+import com.gaskarov.util.constants.*;
 import com.gaskarov.util.container.Array;
 import com.gaskarov.util.container.LinkedHashTable;
 import com.gaskarov.util.container.LinkedIntTable;
@@ -728,6 +728,17 @@ public final class Cellularity {
 				if (nextChunk != null)
 					moveCellularity(dynamic, nextChunk);
 			}
+			Cellularity chunk = dynamic.getChunk();
+			boolean flag = false;
+			for (int i = 0; i < ArrayConstants.MOVE_AROUND_SIZE; ++i)
+				if (chunk.mChunks[1 + ArrayConstants.MOVE_AROUND_X[i]][1 + ArrayConstants.MOVE_AROUND_Y[i]] == null) {
+					flag = true;
+					break;
+				}
+			if (flag)
+				dynamic.mMetaBody.freeze();
+			else
+				dynamic.mMetaBody.unfreeze();
 		}
 	}
 
