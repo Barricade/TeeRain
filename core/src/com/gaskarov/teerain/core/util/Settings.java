@@ -138,7 +138,7 @@ public final class Settings {
 			// LAMP
 			256, 256, 256, 0, //
 			// RED LAMP
-			256, 0, 0, 0, //
+			512, 0, 0, 0, //
 			// GREEN LAMP
 			0, 256, 0, 0, //
 			// BLUE LAMP
@@ -192,7 +192,7 @@ public final class Settings {
 	public static final int ELEMENTS_PER_TILED_TEXTURE = ELEMENTS_PER_TEXTURE * 4;
 
 	public static final float JUMP_DELAY = 0.25f;
-	public static final float GROUND_JUMP_VELOCITY = 20f;
+	public static final float GROUND_JUMP_VELOCITY = 21f;
 
 	public static final float GROUND_CONTROL_SPEED = 12f;
 	public static final float GROUND_CONTROL_ACCEL = 200f;

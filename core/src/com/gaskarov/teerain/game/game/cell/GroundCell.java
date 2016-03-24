@@ -163,6 +163,7 @@ public final class GroundCell extends Cell {
 						GraphicsUtils.render(this, pCellularity, pX, pY, pZ, pCos, pSin, TILE_N_X,
 								TILE_N_Y, TILE_S_X, TILE_S_Y, TILE_H_X, TILE_H_Y, TILE_V_X,
 								TILE_V_Y, TILE_B_X, TILE_B_Y);
+				count += GraphicsUtils.debugRender(this, pCellularity, pX, pY, pZ, pCos, pSin);
 				GraphicsUtils.count(pCellularity, count);
 				break;
 			}
@@ -212,6 +213,16 @@ public final class GroundCell extends Cell {
 	@Override
 	public boolean isBlocking() {
 		return true;
+	}
+
+	@Override
+	public int aiResistance() {
+		return 255;
+	}
+
+	@Override
+	public int aiDiagonalResistance() {
+		return 255;
 	}
 
 	// ===========================================================

@@ -72,7 +72,7 @@ public final class LampCell extends Cell {
 	@Override
 	public void attach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		pCellularity.setCellLightData(pX, pY, pZ, Settings.AIR_LIGHT_RESISTANCE_ID,
-				Settings.LAMP_LIGHT_SOURCE_ID + (int) (Math.random() * 7) * 0 + 8);
+				Settings.RED_LAMP_LIGHT_SOURCE_ID);
 		DynamicLight.attach(pCellularity, pX, pY, pZ, this);
 		mPhysicsWallOrganoid.attach(pCellularity, pX, pY, pZ, this);
 	}

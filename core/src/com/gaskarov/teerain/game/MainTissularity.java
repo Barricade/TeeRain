@@ -11,11 +11,13 @@ import com.gaskarov.teerain.core.Tissularity;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.debug.TimeMeasure;
 import com.gaskarov.teerain.game.game.GameTissularity;
+import com.gaskarov.teerain.game.game.cell.AirCell;
 import com.gaskarov.teerain.game.game.cell.GrenadeGunCell;
 import com.gaskarov.teerain.game.game.cell.GroundCell;
 import com.gaskarov.teerain.game.game.cell.HammerCell;
 import com.gaskarov.teerain.game.game.cell.LampCell;
 import com.gaskarov.teerain.game.game.cell.RockCell;
+import com.gaskarov.teerain.game.game.cell.TeeCell;
 import com.gaskarov.teerain.game.hud.HUDTissularity;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
@@ -75,11 +77,13 @@ public final class MainTissularity extends Tissularity {
 		pOrganularity.pushTissularity(mHUDTissularity);
 		pOrganularity.pushTissularity(mGameTissularity);
 		mGameTissularity.pushPlayer();
-		mPlayer.setItem(1, GroundCell.obtain());
+		mPlayer.setItem(1, HammerCell.obtain());
 		mPlayer.setItem(2, RockCell.obtain());
 		mPlayer.setItem(3, LampCell.obtain());
 		mPlayer.setItem(4, GrenadeGunCell.obtain());
-		mPlayer.setItem(5, HammerCell.obtain());
+		mPlayer.setItem(5, GroundCell.obtain());
+		mPlayer.setItem(6, AirCell.obtain());
+		mPlayer.setItem(7, TeeCell.obtain(1));
 	}
 
 	@Override
@@ -105,7 +109,7 @@ public final class MainTissularity extends Tissularity {
 		SpriteBatch spriteBatch = mOrganularity.getSpriteBatch();
 
 		TimeMeasure.sM10.start();
-		Gdx.gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		Gdx.gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		TimeMeasure.sM10.end();
 

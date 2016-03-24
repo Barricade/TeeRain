@@ -144,9 +144,9 @@ public final class MetaBody {
 	public void unfreeze() {
 		if (mFreezed) {
 			mFreezed = false;
+			mBody.setType(BodyType.DynamicBody);
 			mBody.setLinearVelocity(mBodyDef.linearVelocity);
 			mBody.setAngularVelocity(mBodyDef.angularVelocity);
-			mBody.setType(BodyType.DynamicBody);
 		}
 	}
 
@@ -199,9 +199,11 @@ public final class MetaBody {
 	public void refresh() {
 		if (mBody != null) {
 			mBodyDef.angle = mBody.getAngle();
-			mBodyDef.angularVelocity = mBody.getAngularVelocity();
-			mBodyDef.linearVelocity.x = mBody.getLinearVelocity().x;
-			mBodyDef.linearVelocity.y = mBody.getLinearVelocity().y;
+			if (!mFreezed) {
+				mBodyDef.angularVelocity = mBody.getAngularVelocity();
+				mBodyDef.linearVelocity.x = mBody.getLinearVelocity().x;
+				mBodyDef.linearVelocity.y = mBody.getLinearVelocity().y;
+			}
 			mBodyDef.position.x = mBody.getPosition().x - mOffsetX;
 			mBodyDef.position.y = mBody.getPosition().y - mOffsetY;
 		}

@@ -9,8 +9,10 @@ import com.gaskarov.teerain.core.Tissularity;
 import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.game.game.ControlOrganoid;
+import com.gaskarov.teerain.game.game.cell.HammerCell;
 import com.gaskarov.util.common.IntVector1;
 import com.gaskarov.util.common.KeyValuePair;
+import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
 import com.gaskarov.util.container.LinkedHashTable;
@@ -34,9 +36,12 @@ public final class Controller {
 
 	private static final Array sPool = Array.obtain();
 
-	private IntVector1 mTmp = IntVector1.obtain(0);
+	private final IntVector1 mTmp = IntVector1.obtain(0);
+	private final int[][] mTmpA33 = new int[3][3];
+	private final int[][] mTmpB33 = new int[3][3];
 
 	private Player mPlayer;
+	private Player mBot;
 
 	private int mControlMove;
 	private boolean mJump;
@@ -81,6 +86,8 @@ public final class Controller {
 	public static Controller obtain(Player pPlayer) {
 		Controller obj = obtainPure();
 		obj.mPlayer = pPlayer;
+		obj.mBot = Player.obtain();
+		obj.mBot.setItem(1, HammerCell.obtain());
 		obj.mControlMove = 0;
 		obj.mJump = false;
 		for (int i = 0; i < obj.mPointersControlMove.length; ++i)
@@ -91,16 +98,28 @@ public final class Controller {
 	}
 
 	public static void recycle(Controller pObj) {
+		Player.recycle(pObj.mBot);
+		pObj.mBot = null;
 		recyclePure(pObj);
 	}
 
 	public void tick(Tissularity pTissularity) {
 		LinkedHashTable controllables = pTissularity.getControllables();
-		KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(0));
-		if (pair != null) {
-			LinkedHashTable tmp = (LinkedHashTable) pair.mB;
-			for (List.Node i = tmp.begin(); i != tmp.end(); i = tmp.next(i))
-				control(pTissularity, (ControlOrganoid) tmp.val(i));
+		{
+			KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(0));
+			if (pair != null) {
+				LinkedHashTable tmp = (LinkedHashTable) pair.mB;
+				for (List.Node i = tmp.begin(); i != tmp.end(); i = tmp.next(i))
+					control(pTissularity, (ControlOrganoid) tmp.val(i));
+			}
+		}
+		{
+			KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(1));
+			if (pair != null) {
+				LinkedHashTable tmp = (LinkedHashTable) pair.mB;
+				for (List.Node i = tmp.begin(); i != tmp.end(); i = tmp.next(i))
+					controlBot(pTissularity, (ControlOrganoid) tmp.val(i));
+			}
 		}
 	}
 
@@ -126,6 +145,75 @@ public final class Controller {
 		tissularity.setCameraX(nextCameraX);
 		tissularity.setCameraY(nextCameraY);
 		mPlayer.control(cellularity, x, y, z, pControlOrganoid);
+
+		int posX = pTissularity.getOffsetX() + MathUtils.floor(nextCameraX);
+		int posY = pTissularity.getOffsetX() + MathUtils.floor(nextCameraY);
+		int ai = pTissularity.getAI(posX, posY, z);
+		pTissularity.setAI(posX, posY, z, 255, (ai >>> 8) & 15, ai >>> 12);
+	}
+
+	private void controlBot(Tissularity pTissularity, ControlOrganoid pControlOrganoid) {
+		Cellularity cellularity = pControlOrganoid.getCellularity();
+		int x = pControlOrganoid.getX();
+		int y = pControlOrganoid.getY();
+		int z = pControlOrganoid.getZ();
+		MetaBody body = cellularity.getBody();
+		float c = (float) Math.cos(body.getAngle());
+		float s = (float) Math.sin(body.getAngle());
+		float offset = cellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
+		Cellularity chunk = cellularity.isChunk() ? cellularity : cellularity.getChunk();
+		Tissularity tissularity = chunk.getTissularity();
+		float posX =
+				body.getOffsetX() + body.getPositionX() + (x - offset + 0.5f) * c
+						- (y - offset + 0.5f) * s;
+		float posY =
+				body.getOffsetY() + body.getPositionY() + (x - offset + 0.5f) * s
+						+ (y - offset + 0.5f) * c;
+		int coordX = tissularity.getOffsetX() + MathUtils.floor(posX);
+		int coordY = tissularity.getOffsetY() + MathUtils.floor(posY);
+
+		int maxX = 0;
+		int maxY = 0;
+		boolean flag = !pControlOrganoid.isGrounded() && body.getVelocityY() < 1.0f;
+		for (int i = -1; i <= 1; ++i)
+			for (int j = -1; j <= 1; ++j) {
+				int ai = tissularity.getAI(coordX + j, coordY + i, z);
+				if (flag) {
+					mTmpA33[1 + i][1 + j] =
+							i == -1 || i == 0 && posY - coordY > 0.5f ? (ai >>> 8) & 15 : 0;
+					mTmpB33[1 + i][1 + j] = ai & 255;
+				} else {
+					mTmpA33[1 + i][1 + j] = ai & 255;
+					mTmpB33[1 + i][1 + j] =
+							i == -1 || i == 0 && posY - coordY > 0.5f ? (ai >>> 8) & 15 : 0;
+				}
+				if (mTmpA33[1 + i][1 + j] > mTmpA33[maxY][maxX]
+						|| mTmpA33[1 + i][1 + j] == mTmpA33[maxY][maxX]
+						&& mTmpB33[1 + i][1 + j] > mTmpB33[maxY][maxX]) {
+					maxX = 1 + j;
+					maxY = 1 + i;
+				}
+			}
+		if (maxX == 0)
+			pControlOrganoid.setControlMove(-1);
+		else if (maxX == 2)
+			pControlOrganoid.setControlMove(1);
+		else {
+			if (posX - coordX < 0.45f)
+				pControlOrganoid.setControlMove(1);
+			else if (posX - coordX > 0.55f)
+				pControlOrganoid.setControlMove(-1);
+			else
+				pControlOrganoid.setControlMove(0);
+		}
+		if (maxY == 2
+				&& !(maxX == 2 && (posX - coordX < 0.2f || body.getVelocityX() < 0) || maxX == 0
+						&& (posX - coordX > 0.8f || body.getVelocityX() > 0)))
+			pControlOrganoid.setJump(true);
+		else
+			pControlOrganoid.setJump(false);
+
+		mBot.control(cellularity, x, y, z, pControlOrganoid);
 	}
 
 	public void keyDown(Tissularity pTissularity, int pKeycode) {
@@ -201,13 +289,54 @@ public final class Controller {
 						clickY, controlOrganoid, mPlayer, mPlayer.getUseItem());
 			}
 		}
+		// touchDragged(pTissularity, pScreenX, pScreenY, pPointer);
 	}
 
 	public void touchUp(Tissularity pTissularity, int pScreenX, int pScreenY, int pPointer,
 			int pButton) {
+		// if (mPointersControlMove[pPointer] == -1)
+		// leftUp();
+		// if (mPointersControlMove[pPointer] == 1)
+		// rightUp();
+		// mPointersControlMove[pPointer] = 0;
+		// if (mPointersJump[pPointer])
+		// jumpUp();
+		// mPointersJump[pPointer] = false;
 	}
 
 	public void touchDragged(Tissularity pTissularity, int pScreenX, int pScreenY, int pPointer) {
+		// if (pScreenX < Gdx.graphics.getWidth() / 3) {
+		// if (mPointersControlMove[pPointer] == 1)
+		// rightUp();
+		// if (mPointersControlMove[pPointer] != -1) {
+		// leftDown();
+		// mPointersControlMove[pPointer] = -1;
+		// }
+		// } else if (pScreenX > Gdx.graphics.getWidth() / 3 * 2) {
+		// if (mPointersControlMove[pPointer] == -1)
+		// leftUp();
+		// if (mPointersControlMove[pPointer] != 1) {
+		// rightDown();
+		// mPointersControlMove[pPointer] = 1;
+		// }
+		// } else {
+		// if (mPointersControlMove[pPointer] == 1)
+		// rightUp();
+		// else if (mPointersControlMove[pPointer] == -1)
+		// leftUp();
+		// mPointersControlMove[pPointer] = 0;
+		// }
+		// if (pScreenY < Gdx.graphics.getHeight() / 2) {
+		// if (!mPointersJump[pPointer]) {
+		// jumpDown();
+		// mPointersJump[pPointer] = true;
+		// }
+		// } else {
+		// if (mPointersJump[pPointer]) {
+		// jumpUp();
+		// mPointersJump[pPointer] = false;
+		// }
+		// }
 	}
 
 	public void mouseMoved(Tissularity pTissularity, int pScreenX, int pScreenY) {

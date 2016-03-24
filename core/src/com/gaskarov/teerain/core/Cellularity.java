@@ -39,6 +39,9 @@ import static com.gaskarov.util.constants.ArrayConstants.DIRECTIONS_3D_Z;
 import static com.gaskarov.util.constants.ArrayConstants.MOVE_AROUND_SIZE;
 import static com.gaskarov.util.constants.ArrayConstants.MOVE_AROUND_X;
 import static com.gaskarov.util.constants.ArrayConstants.MOVE_AROUND_Y;
+import static com.gaskarov.util.constants.ArrayConstants.SQUARE_3_SIZE;
+import static com.gaskarov.util.constants.ArrayConstants.SQUARE_3_X;
+import static com.gaskarov.util.constants.ArrayConstants.SQUARE_3_Y;
 
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
@@ -48,7 +51,8 @@ import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.game.game.cell.AirCell;
 import com.gaskarov.util.common.MathUtils;
-import com.gaskarov.util.constants.*;
+import com.gaskarov.util.constants.ArrayConstants;
+import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
 import com.gaskarov.util.container.LinkedHashTable;
 import com.gaskarov.util.container.LinkedIntTable;
@@ -66,6 +70,8 @@ public final class Cellularity {
 	// Constants
 	// ===========================================================
 
+	public static final int[] COLOR_BLACK = new int[COLORS];
+
 	// ===========================================================
 	// Fields
 	// ===========================================================
@@ -76,6 +82,11 @@ public final class Cellularity {
 
 	private final int[] mTmpLight = new int[COLORS];
 	private final int[] mTmpLightAround = new int[MOVE_AROUND_SIZE << COLORS_LOG];
+
+	private final short[] mAI = new short[CHUNK_VOLUME];
+	private final short[] mAIModified = new short[CHUNK_VOLUME];
+	private final LinkedIntTable mAIModifiedKeys = LinkedIntTable.obtain(CHUNK_VOLUME);
+	private final LinkedIntTable mAIUpdate = LinkedIntTable.obtain(CHUNK_VOLUME);
 
 	private final int[] mLight = new int[CHUNK_VOLUME << COLORS_LOG];
 	private final int[] mLightModified = new int[CHUNK_VOLUME << COLORS_LOG];
@@ -213,6 +224,9 @@ public final class Cellularity {
 		LinkedHashTable.recycle(pObj.mCellularities);
 		pObj.mCellularities = null;
 
+		pObj.mAIModifiedKeys.clear();
+		pObj.mAIUpdate.clear();
+
 		pObj.mLightModifiedKeys.clear();
 		pObj.mLightUpdate.clear();
 		pObj.mLightRefresh.clear();
@@ -269,6 +283,73 @@ public final class Cellularity {
 		for (List.Node i = mCellularities.begin(); i != mCellularities.end(); i =
 				mCellularities.next(i))
 			((Cellularity) mCellularities.val(i)).precalc(pN);
+
+		for (int i = (mAIUpdate.size() + pN - 1) / pN; i > 0; --i) {
+			final int val0 = mAIUpdate.pop();
+			final int x0 = getValX(val0);
+			final int y0 = getValY(val0);
+			final int z0 = getValZ(val0);
+			int oldAI = mAI[val0];
+			int oldAIField = oldAI & 255;
+			int oldAIVertical = (oldAI >>> 8) & 15;
+			int oldAIHorizontal = oldAI >>> 12;
+			int aiField0 = 0;
+			int aiVertical0 = 0;
+			int aiHorizontal0 = 0;
+			Cellularity tmpChunk = getChunk(x0, y0 - 1);
+			boolean flag1 =
+					tmpChunk != null
+							&& tmpChunk.getCellHelper(x0, y0 - 1 & CHUNK_SIZE_MASK, z0).isSolid();
+			boolean flag2 = getCellHelper(x0, y0, z0).isSolid();
+			for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
+				final int vx = MOVE_AROUND_X[j];
+				final int vy = MOVE_AROUND_Y[j];
+				final int x = x0 + vx;
+				final int y = y0 + vy;
+				final int z = z0;
+				final Cellularity chunk = getChunk(x, y);
+				if (chunk != null) {
+					final int localX = x & CHUNK_SIZE_MASK;
+					final int localY = y & CHUNK_SIZE_MASK;
+					final int val = getVal(localX, localY, z);
+					Cell cell = chunk.getCellHelper(localX, localY, z);
+					final int aiResistance =
+							(vx == 0 || vy == 0) ? cell.aiResistance() : cell
+									.aiDiagonalResistance();
+					int ai = chunk.mAI[val];
+					int aiField = Math.max((ai & 255) - aiResistance, 0);
+					int aiVertical = (vy == -1 ? Math.max(0, ((ai >>> 8) & 15) - 1) : 0);
+					int aiHorizontal = (vy == 1 ? Math.max(0, (ai >>> 12) - 1) : 0);
+					if (flag2) {
+						aiVertical = 0;
+						aiHorizontal = 0;
+					} else if (flag1) {
+						aiVertical = 5;
+						aiHorizontal = 15;
+					}
+					if (vy == 0) {
+						if (oldAIVertical == 0 || oldAIHorizontal == 0)
+							aiField = 0;
+					} else if (vy == -1) {
+						if (oldAIHorizontal == 0)
+							aiField = 0;
+					} else {
+						if (oldAIVertical == 0)
+							aiField = 0;
+					}
+					aiField0 = Math.max(aiField0, aiField);
+					aiVertical0 = Math.max(aiVertical0, aiVertical);
+					aiHorizontal0 = Math.max(aiHorizontal0, aiHorizontal);
+				}
+			}
+			if (!flag2 && !flag1 && aiVertical0 != 0)
+				aiHorizontal0 = 15;
+			final int ai0 = aiField0 | (aiVertical0 << 8) | (aiHorizontal0 << 12);
+			if (mAI[val0] != ai0) {
+				mAIModified[val0] = (short) ai0;
+				mAIModifiedKeys.set(val0);
+			}
+		}
 
 		for (int i = (mLightUpdate.size() + pN - 1) / pN; i > 0; --i) {
 			final int val0 = mLightUpdate.pop();
@@ -345,6 +426,25 @@ public final class Cellularity {
 				mCellularities.next(i))
 			((Cellularity) mCellularities.val(i)).update();
 
+		while (mAIModifiedKeys.size() > 0) {
+			final int val0 = mAIModifiedKeys.pop();
+			final int x0 = getValX(val0);
+			final int y0 = getValY(val0);
+			final int z0 = getValZ(val0);
+			mAI[val0] = mAIModified[val0];
+			for (int j = 0; j < SQUARE_3_SIZE; ++j) {
+				final int x = x0 + SQUARE_3_X[j];
+				final int y = y0 + SQUARE_3_Y[j];
+				final int z = z0;
+				final Cellularity chunk = getChunk(x, y);
+				if (chunk != null) {
+					final int val = getVal(x & CHUNK_SIZE_MASK, y & CHUNK_SIZE_MASK, z);
+					chunk.mAIUpdate.set(val);
+					chunk.mRender.set(val);
+				}
+			}
+		}
+
 		while (mLightModifiedKeys.size() > 0) {
 			final int val0 = mLightModifiedKeys.pop();
 			final int x0 = getValX(val0);
@@ -388,6 +488,7 @@ public final class Cellularity {
 					chunk.mCellsRefresh.set(val);
 					chunk.mRender.set(val);
 					chunk.mLightUpdate.set(val);
+					chunk.mAIUpdate.set(val);
 				}
 			}
 			invalidateDropHelper(x0, y0, z0);
@@ -752,6 +853,20 @@ public final class Cellularity {
 		return mLightSource[getVal(pX, pY, pZ)];
 	}
 
+	public void setAI(int pX, int pY, int pZ, int pAIResistance, int pAIVertical, int pAIHorizontal) {
+		final Cellularity chunk = getChunk(pX, pY);
+		if (CHUNK_MIN_DEPTH <= pZ && pZ <= CHUNK_MAX_DEPTH && chunk != null)
+			chunk.setAIHelper(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ, pAIResistance,
+					pAIVertical, pAIHorizontal);
+	}
+
+	public int getAI(int pX, int pY, int pZ) {
+		final Cellularity chunk = getChunk(pX, pY);
+		if (chunk != null)
+			return chunk.getAIHelper(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ);
+		return 0;
+	}
+
 	public void setLight(int pX, int pY, int pZ, int pR, int pG, int pB) {
 		final Cellularity chunk = getChunk(pX, pY);
 		if (CHUNK_MIN_DEPTH <= pZ && pZ <= CHUNK_MAX_DEPTH && chunk != null)
@@ -820,6 +935,18 @@ public final class Cellularity {
 		return (int) m;
 	}
 
+	private void setAIHelper(int pX, int pY, int pZ, int pAIResistance, int pAIVertical,
+			int pAIHorizontal) {
+		final int val = getVal(pX, pY, pZ);
+		mAI[val] = (short) (pAIResistance | (pAIVertical << 8) | (pAIHorizontal << 12));
+		for (int j = 0; j < SQUARE_3_SIZE; ++j)
+			invalidateAI(pX + SQUARE_3_X[j], pY + SQUARE_3_Y[j], pZ);
+	}
+
+	private int getAIHelper(int pX, int pY, int pZ) {
+		return mAI[getVal(pX, pY, pZ)];
+	}
+
 	private void setLightHelper(int pX, int pY, int pZ, int pR, int pG, int pB) {
 		final int colorId = getVal(pX, pY, pZ) << COLORS_LOG;
 		mLight[colorId] = pR;
@@ -841,6 +968,12 @@ public final class Cellularity {
 			mTmpLight[2] = skyB(pX, pY);
 		}
 		return mTmpLight;
+	}
+
+	private void invalidateAI(int pX, int pY, int pZ) {
+		final Cellularity chunk = getChunk(pX, pY);
+		if (CHUNK_MIN_DEPTH <= pZ && pZ <= CHUNK_MAX_DEPTH && chunk != null)
+			chunk.invalidateAIHelper(pX & CHUNK_SIZE_MASK, pY & CHUNK_SIZE_MASK, pZ);
 	}
 
 	private void invalidateLight(int pX, int pY, int pZ) {
@@ -1005,6 +1138,7 @@ public final class Cellularity {
 		mCellsRefresh.set(val);
 		mRender.set(val);
 		mLightUpdate.set(val);
+		mAIUpdate.set(val);
 		if (mCellsModifiedKeys.remove(val)) {
 			mCellsModified[val].recycle();
 			mCellsModified[val] = null;
@@ -1017,6 +1151,13 @@ public final class Cellularity {
 
 	private void invalidateRenderHelper(int pX, int pY, int pZ) {
 		mRender.set(getVal(pX, pY, pZ));
+	}
+
+	private void invalidateAIHelper(int pX, int pY, int pZ) {
+		final int val = getVal(pX, pY, pZ);
+		mAIUpdate.set(val);
+		mRender.set(val);
+		mAIModifiedKeys.remove(val);
 	}
 
 	private void invalidateLightHelper(int pX, int pY, int pZ) {
@@ -1174,15 +1315,15 @@ public final class Cellularity {
 	}
 
 	private int skyR(int pX, int pY) {
-		return 256;
+		return 1024;
 	}
 
 	private int skyG(int pX, int pY) {
-		return 256;
+		return 1024;
 	}
 
 	private int skyB(int pX, int pY) {
-		return 256;
+		return 1024;
 	}
 
 	private Cellularity getChunk(int pX, int pY) {

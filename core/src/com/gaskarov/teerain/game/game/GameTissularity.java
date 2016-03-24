@@ -252,6 +252,7 @@ public final class GameTissularity extends Tissularity {
 					for (int x = Settings.CHUNK_LEFT; x <= Settings.CHUNK_RIGHT; ++x) {
 						chunk.setCell(x, y, z, genWorld(seed, offsetX + x, offsetY + y, z));
 						chunk.setLight(x, y, z, 0, 0, 0);
+						chunk.setAI(x, y, z, 0, 0, 0);
 					}
 			for (int i = 0; i < 16; ++i) {
 				chunk.precalc(1);

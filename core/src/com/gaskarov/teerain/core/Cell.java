@@ -143,6 +143,14 @@ public abstract class Cell {
 		return false;
 	}
 
+	public int aiResistance() {
+		return 2;
+	}
+
+	public int aiDiagonalResistance() {
+		return 3;
+	}
+
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================

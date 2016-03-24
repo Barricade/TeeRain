@@ -312,7 +312,7 @@ public final class ControlOrganoid implements Collidable {
 						body.getVelocityY());
 			}
 
-			if (mJump && (grounded || true) && mJumpTimeDelayLeft <= 0) {
+			if (mJump && grounded && mJumpTimeDelayLeft <= 0) {
 				mJumpTimeDelayLeft = Settings.JUMP_DELAY;
 				float jumpImpulse = Settings.GROUND_JUMP_VELOCITY * body.getMass();
 				if (!isStaticGrounded()) {

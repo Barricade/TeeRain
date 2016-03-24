@@ -47,6 +47,39 @@ public final class GraphicsUtils {
 	// Methods
 	// ===========================================================
 
+	public static int debugRender(Cell pCell, Cellularity pCellularity, int pX, int pY, int pZ,
+			float pCos, float pSin) {
+		int count = 0;
+		if (pZ == 0) {
+			count += GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
+					8 * Settings.TILE_W, 0 * Settings.TILE_H, 255/*pCellularity.getAI(pX, pY, pZ) & 255*/,
+					255, 255, ((pCellularity.getAI(pX, pY, pZ) >> 8) & 15) * 42);
+			count += GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
+					0 * Settings.TILE_W, 7 * Settings.TILE_H, 255/*pCellularity.getAI(pX, pY, pZ) & 255*/,
+					255, 255, (pCellularity.getAI(pX, pY, pZ) >>> 12) * 16);
+			count += GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
+					0 * Settings.TILE_W, 1 * Settings.TILE_H, 255/*pCellularity.getAI(pX, pY, pZ) & 255*/,
+					0, 0, (pCellularity.getAI(pX, pY, pZ) & 255) / 2);
+		}
+		return count;
+	}
+
+	public static int render(Cell pCell, Cellularity pCellularity, int pX, int pY, int pZ,
+			float pCos, float pSin, float pTileTX, float pTileTY, int pR, int pG, int pB, int pA) {
+
+		Cellularity chunk = pCellularity.isChunk() ? pCellularity : pCellularity.getChunk();
+		Tissularity tissularity = chunk.getTissularity();
+		int smallTileX = getTileX(pCellularity, pX) * 2;
+		int smallTileY = getTileY(pCellularity, pY) * 2;
+
+		float color = Color.toFloatBits(pR, pG, pB, pA);
+
+		drawTexture(smallTileX, smallTileY, 2, 2, pTileTX, pTileTY, pTileTX + Settings.TILE_W,
+				pTileTY + Settings.TILE_H, tissularity.getGraphicsModule().getFloatBuffer(), color,
+				color, color, color);
+		return 1;
+	}
+
 	public static int renderTexture(Cell pCell, Cellularity pCellularity, int pX, int pY, int pZ,
 			float pCos, float pSin, float pTileTX, float pTileTY, float pTileWidth,
 			float pTileHeight, float pPositionX, float pPositionY, float pLocalWidth,

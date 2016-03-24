@@ -10,8 +10,8 @@ public class DesktopLauncher {
 		config.fullscreen = true;
 		config.width = 1920 + 1280 * 0;
 		config.height = 1080 + 720 * 0;
-		// config.width = 1000;
-		// config.height = 1000;
+//		 config.width = 1000;
+//		 config.height = 1000;
 		// config.samples = 0;
 		// config.foregroundFPS = 0;
 		// config.vSyncEnabled = false;

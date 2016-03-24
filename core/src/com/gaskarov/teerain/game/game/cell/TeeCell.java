@@ -2,9 +2,12 @@ package com.gaskarov.teerain.game.game.cell;
 
 import com.gaskarov.teerain.core.Cell;
 import com.gaskarov.teerain.core.Cellularity;
+import com.gaskarov.teerain.core.Tissularity;
 import com.gaskarov.teerain.core.VisitorOrganoid;
+import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.game.GraphicsUtils;
+import com.gaskarov.teerain.game.Player;
 import com.gaskarov.teerain.game.game.ControlOrganoid;
 import com.gaskarov.teerain.game.game.DynamicLight;
 import com.gaskarov.teerain.game.game.PhysicsWallOrganoid;
@@ -267,6 +270,37 @@ public final class TeeCell extends Cell {
 				GraphicsUtils.count(pCellularity, 0);
 				break;
 			}
+	}
+
+	@Override
+	public void touchDown(Cellularity pCellularity, int pX, int pY, int pZ, float pClickX,
+			float pClickY, ControlOrganoid pControlOrganoid, Player pPlayer, int pUseItem) {
+		Cellularity chunk = pCellularity.isChunk() ? pCellularity : pCellularity.getChunk();
+		Tissularity tissularity = chunk.getTissularity();
+		int posX = tissularity.getOffsetX() + MathUtils.floor(pClickX);
+		int posY = tissularity.getOffsetY() + MathUtils.floor(pClickY);
+		Cellularity clickChunk =
+				tissularity.getChunk(posX >> Settings.CHUNK_SIZE_LOG,
+						posY >> Settings.CHUNK_SIZE_LOG);
+		if (clickChunk != null)
+			clickChunk.setCell(posX & Settings.CHUNK_SIZE_MASK, posY & Settings.CHUNK_SIZE_MASK, 0,
+					TeeCell.obtain(1));
+		MetaBody body = pCellularity.getBody();
+		float c = (float) Math.cos(body.getAngle());
+		float s = (float) Math.sin(body.getAngle());
+		float offset = pCellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
+		float x =
+				body.getOffsetX() + body.getPositionX() + (pX - offset + 0.5f) * c
+						- (pY - offset + 0.5f) * s;
+		float y =
+				body.getOffsetY() + body.getPositionY() + (pX - offset + 0.5f) * s
+						+ (pY - offset + 0.5f) * c;
+		pControlOrganoid.fastLookTo(pClickX - x, pClickY - y);
+	}
+
+	@Override
+	public boolean isBlocking() {
+		return true;
 	}
 
 	// ===========================================================

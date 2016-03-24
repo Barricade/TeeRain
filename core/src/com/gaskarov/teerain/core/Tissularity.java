@@ -563,6 +563,27 @@ public abstract class Tissularity {
 			pCell.recycle();
 	}
 
+	public int getAI(int pX, int pY, int pZ) {
+		Cellularity chunk = getChunk(pX >> Settings.CHUNK_SIZE_LOG, pY >> Settings.CHUNK_SIZE_LOG);
+		if (chunk != null)
+			return chunk.getAI(pX & Settings.CHUNK_SIZE_MASK, pY & Settings.CHUNK_SIZE_MASK, pZ);
+		return 0;
+	}
+
+	public void setAI(int pX, int pY, int pZ, int pAIField, int pAIVertical, int pAIHorizontal) {
+		Cellularity chunk = getChunk(pX >> Settings.CHUNK_SIZE_LOG, pY >> Settings.CHUNK_SIZE_LOG);
+		if (chunk != null)
+			chunk.setAI(pX & Settings.CHUNK_SIZE_MASK, pY & Settings.CHUNK_SIZE_MASK, pZ, pAIField,
+					pAIVertical, pAIHorizontal);
+	}
+
+	public int[] getLight(int pX, int pY, int pZ) {
+		Cellularity chunk = getChunk(pX >> Settings.CHUNK_SIZE_LOG, pY >> Settings.CHUNK_SIZE_LOG);
+		if (chunk != null)
+			return chunk.getLight(pX & Settings.CHUNK_SIZE_MASK, pY & Settings.CHUNK_SIZE_MASK, pZ);
+		return Cellularity.COLOR_BLACK;
+	}
+
 	public void setLight(int pX, int pY, int pZ, int pR, int pG, int pB) {
 		Cellularity chunk = getChunk(pX >> Settings.CHUNK_SIZE_LOG, pY >> Settings.CHUNK_SIZE_LOG);
 		if (chunk != null)
