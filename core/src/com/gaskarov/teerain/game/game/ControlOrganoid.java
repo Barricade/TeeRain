@@ -8,10 +8,10 @@ import com.badlogic.gdx.physics.box2d.Fixture;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.Manifold;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
-import com.gaskarov.teerain.core.Cell;
-import com.gaskarov.teerain.core.Cellularity;
+import com.gaskarov.teerain.core.Cells;
 import com.gaskarov.teerain.core.Tissularity;
-import com.gaskarov.teerain.core.VacuumCell;
+import com.gaskarov.teerain.core.cellularity.Cellularity;
+import com.gaskarov.teerain.core.cellularity.Cellularity.CellData;
 import com.gaskarov.teerain.core.util.Collidable;
 import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
@@ -81,8 +81,10 @@ public final class ControlOrganoid implements Collidable {
 	private LinkedHashTable mDynamics;
 	private LinkedHashTable mStatics;
 
-	private Cell mSpecialItem;
-	private Cell mUseItem;
+	private int mSpecialItem;
+	private CellData mSpecialItemData;
+	private int mUseItem;
+	private CellData mUseItemData;
 
 	// ===========================================================
 	// Constructors
@@ -135,20 +137,16 @@ public final class ControlOrganoid implements Collidable {
 		return mEyesY;
 	}
 
-	public Cell getSpecialItem() {
+	public int getSpecialItem() {
 		return mSpecialItem;
 	}
 
-	public void setSpecialItem(Cell pSpecialItem) {
-		mSpecialItem = pSpecialItem;
-	}
-
-	public Cell getUseItem() {
+	public int getUseItem() {
 		return mUseItem;
 	}
 
-	public void setUseItem(Cell pUseItem) {
-		mUseItem = pUseItem;
+	public CellData getUseItemData() {
+		return mUseItemData;
 	}
 
 	// ===========================================================
@@ -226,8 +224,10 @@ public final class ControlOrganoid implements Collidable {
 		obj.mDynamics = LinkedHashTable.obtain();
 		obj.mStatics = LinkedHashTable.obtain();
 
-		obj.mSpecialItem = VacuumCell.obtain();
-		obj.mUseItem = VacuumCell.obtain();
+		obj.mSpecialItem = Cells.CELL_TYPE_VACUUM;
+		obj.mSpecialItemData = null;
+		obj.mUseItem = Cells.CELL_TYPE_VACUUM;
+		obj.mUseItemData = null;
 
 		return obj;
 	}
@@ -237,28 +237,43 @@ public final class ControlOrganoid implements Collidable {
 		pObj.mDynamics = null;
 		LinkedHashTable.recycle(pObj.mStatics);
 		pObj.mStatics = null;
-		pObj.mSpecialItem = null;
-		pObj.mUseItem = null;
+		if (pObj.mSpecialItemData != null) {
+			pObj.mSpecialItemData.recycle();
+			pObj.mSpecialItemData = null;
+		}
+		if (pObj.mUseItemData != null) {
+			pObj.mUseItemData.recycle();
+			pObj.mUseItemData = null;
+		}
 		recyclePure(pObj);
 	}
 
-	public void attach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void setSpecialItem(int pSpecialItem, CellData pSpecialItemData) {
+		mSpecialItem = pSpecialItem;
+		mSpecialItemData = pSpecialItemData;
+	}
+
+	public void setUseItem(int pUseItem, CellData pUseItemData) {
+		mUseItem = pUseItem;
+		mUseItemData = pUseItemData;
+	}
+
+	public void attach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		createPhysics(pCellularity, pX, pY, pZ);
 		pCellularity.tickEnable(pX, pY, pZ);
 	}
 
-	public void detach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void detach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		pCellularity.tickDisable(pX, pY, pZ);
 		destroyPhysics(pCellularity, pX, pY, pZ);
 	}
 
-	public void tissularedAttach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void tissularedAttach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		mX = pX;
 		mY = pY;
 		mZ = pZ;
 		mCellularity = pCellularity;
-		Cellularity chunk = pCellularity.isChunk() ? pCellularity : pCellularity.getChunk();
-		Tissularity tissularity = chunk.getTissularity();
+		Tissularity tissularity = pCellularity.getTissularity();
 		LinkedHashTable controllables = tissularity.getControllables();
 		KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(mId));
 		LinkedHashTable tmp;
@@ -270,9 +285,8 @@ public final class ControlOrganoid implements Collidable {
 		tmp.set(this);
 	}
 
-	public void tissularedDetach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
-		Cellularity chunk = pCellularity.isChunk() ? pCellularity : pCellularity.getChunk();
-		Tissularity tissularity = chunk.getTissularity();
+	public void tissularedDetach(Cellularity pCellularity, int pX, int pY, int pZ) {
+		Tissularity tissularity = pCellularity.getTissularity();
 		LinkedHashTable controllables = tissularity.getControllables();
 		KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(mId));
 		LinkedHashTable tmp = (LinkedHashTable) pair.mB;
@@ -286,8 +300,7 @@ public final class ControlOrganoid implements Collidable {
 		mCellularity = null;
 	}
 
-	public void tick(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
-		Cellularity chunk = pCellularity.isChunk() ? pCellularity : pCellularity.getChunk();
+	public void tick(Cellularity pCellularity, int pX, int pY, int pZ) {
 
 		if (mJumpTimeDelayLeft > 0)
 			mJumpTimeDelayLeft -= Settings.TIME_STEP;
@@ -331,7 +344,7 @@ public final class ControlOrganoid implements Collidable {
 
 			if (grounded) {
 				float positionX = body.getPositionX();
-				int chunkX = chunk.getX() << Settings.CHUNK_SIZE_LOG;
+				int chunkX = pCellularity.getChunkX() << Settings.CHUNK_SIZE_LOG;
 				float change;
 				if (mLastFlagX
 						&& Math.abs(change = chunkX - mLastChunkX + positionX - mLastPositionX) > POSITION_CHANGE_EPS) {
@@ -464,8 +477,8 @@ public final class ControlOrganoid implements Collidable {
 		if (mGroundSensor == null) {
 			boolean isChunk = pCellularity.isChunk();
 			MetaBody body = pCellularity.getBody();
-			float offsetX = pX - (isChunk ? 0 : Settings.CHUNK_HSIZE);
-			float offsetY = pY - (isChunk ? 0 : Settings.CHUNK_HSIZE);
+			float offsetX = pX - (isChunk ? 0 : Settings.MAX_DROP_HSIZE);
+			float offsetY = pY - (isChunk ? 0 : Settings.MAX_DROP_HSIZE);
 			float minX = offsetX;
 			float minY = offsetY;
 			float maxX = offsetX + 1.0f;

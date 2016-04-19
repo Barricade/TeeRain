@@ -72,7 +72,7 @@ public final class LampCell extends Cell {
 	@Override
 	public void attach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		pCellularity.setCellLightData(pX, pY, pZ, Settings.AIR_LIGHT_RESISTANCE_ID,
-				Settings.RED_LAMP_LIGHT_SOURCE_ID);
+				Settings.MAGIC_LAMP_LIGHT_SOURCE_ID);
 		DynamicLight.attach(pCellularity, pX, pY, pZ, this);
 		mPhysicsWallOrganoid.attach(pCellularity, pX, pY, pZ, this);
 	}
@@ -158,7 +158,7 @@ public final class LampCell extends Cell {
 
 	@Override
 	public boolean isDroppable(Cellularity pCellularity, int pX, int pY, int pZ) {
-		return true;
+		return false;
 	}
 
 	@Override

@@ -51,15 +51,18 @@ public final class GraphicsUtils {
 			float pCos, float pSin) {
 		int count = 0;
 		if (pZ == 0) {
-			count += GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
-					8 * Settings.TILE_W, 0 * Settings.TILE_H, 255/*pCellularity.getAI(pX, pY, pZ) & 255*/,
-					255, 255, ((pCellularity.getAI(pX, pY, pZ) >> 8) & 15) * 42);
-			count += GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
-					0 * Settings.TILE_W, 7 * Settings.TILE_H, 255/*pCellularity.getAI(pX, pY, pZ) & 255*/,
-					255, 255, (pCellularity.getAI(pX, pY, pZ) >>> 12) * 16);
-			count += GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
-					0 * Settings.TILE_W, 1 * Settings.TILE_H, 255/*pCellularity.getAI(pX, pY, pZ) & 255*/,
-					0, 0, (pCellularity.getAI(pX, pY, pZ) & 255) / 2);
+			count +=
+					GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
+							8 * Settings.TILE_W, 0 * Settings.TILE_H, 255, 255, 255, ((pCellularity
+									.getAI(pX, pY, pZ) >> 8) & 15) * 42);
+			count +=
+					GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
+							0 * Settings.TILE_W, 7 * Settings.TILE_H, 255, 255, 255, (pCellularity
+									.getAI(pX, pY, pZ) >>> 12) * 16);
+			count +=
+					GraphicsUtils.render(pCell, pCellularity, pX, pY, pZ, pCos, pSin,
+							0 * Settings.TILE_W, 1 * Settings.TILE_H, 255, 0, 0, (pCellularity
+									.getAI(pX, pY, pZ) & 255) / 2);
 		}
 		return count;
 	}

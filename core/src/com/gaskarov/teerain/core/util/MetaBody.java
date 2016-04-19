@@ -36,6 +36,8 @@ public final class MetaBody {
 	private static final Array sPool = Array.obtain();
 
 	private BodyDef mBodyDef;
+	private float mCos;
+	private float mSin;
 	private Body mBody;
 	private LinkedHashTable mFixtures;
 	private float mOffsetX;
@@ -53,6 +55,14 @@ public final class MetaBody {
 	// ===========================================================
 	// Getter & Setter
 	// ===========================================================
+
+	public float getCos() {
+		return mCos;
+	}
+
+	public float getSin() {
+		return mSin;
+	}
 
 	public float getOffsetX() {
 		return mOffsetX;
@@ -100,6 +110,8 @@ public final class MetaBody {
 				BodyDefPool.obtain(pActive, pAllowSleep, pAngle, pAngularDamping, pAngularVelocity,
 						pAwake, pBullet, pFixedRotation, pGravityScale, pLinearDamping,
 						pLinearVelocityX, pLinearVelocityY, pPositionX, pPositionY, pType);
+		obj.mCos = (float) Math.cos(pAngle);
+		obj.mSin = (float) Math.sin(pAngle);
 		obj.mBody = null;
 		obj.mFixtures = LinkedHashTable.obtain();
 		obj.mOffsetX = 0;
@@ -199,6 +211,8 @@ public final class MetaBody {
 	public void refresh() {
 		if (mBody != null) {
 			mBodyDef.angle = mBody.getAngle();
+			mCos = (float) Math.cos(mBodyDef.angle);
+			mSin = (float) Math.sin(mBodyDef.angle);
 			if (!mFreezed) {
 				mBodyDef.angularVelocity = mBody.getAngularVelocity();
 				mBodyDef.linearVelocity.x = mBody.getLinearVelocity().x;

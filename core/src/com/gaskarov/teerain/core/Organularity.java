@@ -52,7 +52,13 @@ public final class Organularity implements ContactListener {
 
 	private OrthographicCamera mCamera;
 	private SpriteBatch mSpriteBatch;
-	private FloatArray[] mRenderBuffers = new FloatArray[Settings.LAYERS];
+
+	private final Object mRenderMonitor = new Object();
+	private final FloatArray[] mRenderBuffers = new FloatArray[Settings.LAYERS];
+	private FloatArray mRenderBufferA;
+	private FloatArray mRenderBufferB;
+	private FloatArray mRenderBufferC;
+	private boolean mRenderSwapped;
 
 	private World mWorld;
 
@@ -70,7 +76,7 @@ public final class Organularity implements ContactListener {
 
 	private Updater mUpdater;
 
-	private Object mInputMonitor = new Object();
+	private final Object mInputMonitor = new Object();
 	private IntArray mInputBufferA;
 	private IntArray mInputBufferB;
 
@@ -101,8 +107,20 @@ public final class Organularity implements ContactListener {
 		return mSpriteBatch;
 	}
 
+	public Object getRenderMonitor() {
+		return mRenderMonitor;
+	}
+
 	public FloatArray[] getRenderBuffers() {
 		return mRenderBuffers;
+	}
+
+	public FloatArray getRenderBufferA() {
+		return mRenderBufferA;
+	}
+
+	public FloatArray getRenderBufferC() {
+		return mRenderBufferC;
 	}
 
 	public World getWorld() {
@@ -226,6 +244,10 @@ public final class Organularity implements ContactListener {
 		obj.mSpriteBatch = new SpriteBatch(Settings.SPRITE_BATCH_SIZE, shader);
 		for (int i = 0; i < obj.mRenderBuffers.length; ++i)
 			obj.mRenderBuffers[i] = FloatArray.obtain();
+		obj.mRenderBufferA = FloatArray.obtain();
+		obj.mRenderBufferB = FloatArray.obtain();
+		obj.mRenderBufferC = FloatArray.obtain();
+		obj.mRenderSwapped = false;
 		obj.mWorld = new World(new Vector2(Settings.GRAVITY_X, Settings.GRAVITY_Y), true);
 		obj.mWorld.setContactListener(obj);
 		obj.mGroupIndexPacksSize = 1;
@@ -260,6 +282,12 @@ public final class Organularity implements ContactListener {
 			FloatArray.recycle(pObj.mRenderBuffers[i]);
 			pObj.mRenderBuffers[i] = null;
 		}
+		FloatArray.recycle(pObj.mRenderBufferA);
+		pObj.mRenderBufferA = null;
+		FloatArray.recycle(pObj.mRenderBufferB);
+		pObj.mRenderBufferB = null;
+		FloatArray.recycle(pObj.mRenderBufferC);
+		pObj.mRenderBufferC = null;
 		IntArray.recycle(pObj.mInputBufferA);
 		pObj.mInputBufferA = null;
 		IntArray.recycle(pObj.mInputBufferB);
@@ -335,9 +363,22 @@ public final class Organularity implements ContactListener {
 	}
 
 	public void render() {
-		TimeMeasure.sM9.start();
-		mMainTissularity.render(System.currentTimeMillis() - Settings.RENDER_DELAY);
-		TimeMeasure.sM9.end();
+		synchronized (mRenderMonitor) {
+			while (!mRenderSwapped) {
+				try {
+					mRenderMonitor.wait(Settings.WAIT_LOOP_DELAY);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+			FloatArray tmp = mRenderBufferC;
+			mRenderBufferC = mRenderBufferB;
+			mRenderBufferB = tmp;
+			mRenderSwapped = false;
+		}
+		TimeMeasure.sM14.start();
+		mMainTissularity.render();
+		TimeMeasure.sM14.end();
 	}
 
 	public synchronized void resize(int pWidth, int pHeight) {
@@ -418,6 +459,8 @@ public final class Organularity implements ContactListener {
 	}
 
 	private void tick() {
+		TimeMeasure.start();
+		TimeMeasure.sM1.start();
 		mUpdateAccumulatedTime += Settings.TIME_STEP_MILLIS;
 		long millis = (long) mUpdateAccumulatedTime;
 		mUpdateAccumulatedTime -= millis;
@@ -485,12 +528,19 @@ public final class Organularity implements ContactListener {
 			}
 		}
 		mInputBufferB.clear();
-		TimeMeasure.start();
-		TimeMeasure.sM1.start();
-		TimeMeasure.sM8.start();
+		TimeMeasure.sM2.start();
 		mWorld.step(Settings.TIME_STEP, Settings.VELOCITY_ITERATIONS, Settings.POSITION_ITERATIONS);
-		TimeMeasure.sM8.end();
+		TimeMeasure.sM2.end();
+		TimeMeasure.sM3.start();
 		mMainTissularity.tick();
+		TimeMeasure.sM3.end();
+		synchronized (mRenderMonitor) {
+			FloatArray tmp = mRenderBufferA;
+			mRenderBufferA = mRenderBufferB;
+			mRenderBufferB = tmp;
+			mRenderBufferA.clear();
+			mRenderSwapped = true;
+		}
 		TimeMeasure.sM1.end();
 		TimeMeasure.end();
 	}

@@ -132,6 +132,14 @@ public final class MathUtils {
 		return pN > 0 ? 1 : pN < 0 ? -1 : 0;
 	}
 
+	public static float clamp(float pX, float pMin, float pMax) {
+		return pX < pMin ? pMin : pX > pMax ? pMax : pX;
+	}
+
+	public static int clamp(int pX, int pMin, int pMax) {
+		return pX < pMin ? pMin : pX > pMax ? pMax : pX;
+	}
+
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================

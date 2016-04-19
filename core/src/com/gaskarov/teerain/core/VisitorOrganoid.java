@@ -1,13 +1,14 @@
 package com.gaskarov.teerain.core;
 
-import com.gaskarov.teerain.core.util.MetaBody;
+import com.badlogic.gdx.math.Vector2;
+import com.gaskarov.teerain.core.cellularity.Cellularity;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
 
 /**
- * Copyright (c) 2014 Ayrat Gaskarov <br>
+ * Copyright (c) 2016 Ayrat Gaskarov <br>
  * All rights reserved.
  * 
  * @author Ayrat Gaskarov
@@ -65,9 +66,9 @@ public class VisitorOrganoid {
 			}
 	}
 
-	public static VisitorOrganoid obtain() {
+	public static VisitorOrganoid obtain(boolean pIsEnabled) {
 		VisitorOrganoid obj = obtainPure();
-		obj.mIsEnabled = true;
+		obj.mIsEnabled = pIsEnabled;
 		obj.mIsVisitor = false;
 		obj.mVisitorX = 0;
 		obj.mVisitorY = 0;
@@ -80,31 +81,31 @@ public class VisitorOrganoid {
 		recyclePure(pObj);
 	}
 
-	public void attach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void attach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		if (mIsEnabled) {
 			if (!pCellularity.isChunk())
 				pCellularity.tickEnable(pX, pY, pZ);
 		}
 	}
 
-	public void detach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void detach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		if (mIsEnabled) {
 			if (!pCellularity.isChunk())
 				pCellularity.tickDisable(pX, pY, pZ);
 		}
 	}
 
-	public void tissularedAttach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void tissularedAttach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		if (mIsEnabled)
 			pushVisitor(pCellularity, pX, pY, pZ);
 	}
 
-	public void tissularedDetach(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void tissularedDetach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		if (mIsEnabled)
-			removeVisitor(getTissularity(pCellularity));
+			removeVisitor(pCellularity.getTissularity());
 	}
 
-	public void tick(Cellularity pCellularity, int pX, int pY, int pZ, Cell pCell) {
+	public void tick(Cellularity pCellularity, int pX, int pY, int pZ) {
 		if (mIsEnabled && !pCellularity.isChunk())
 			pushVisitor(pCellularity, pX, pY, pZ);
 	}
@@ -115,7 +116,7 @@ public class VisitorOrganoid {
 		mIsEnabled = pIsEnabled;
 		if (pCellularity == null)
 			return;
-		Tissularity tissularity = getTissularity(pCellularity);
+		Tissularity tissularity = pCellularity.getTissularity();
 		if (mIsEnabled) {
 			if (tissularity != null)
 				pushVisitor(pCellularity, pX, pY, pZ);
@@ -129,41 +130,18 @@ public class VisitorOrganoid {
 		}
 	}
 
-	private Tissularity getTissularity(Cellularity pCellularity) {
-		Cellularity chunk = pCellularity.isChunk() ? pCellularity : pCellularity.getChunk();
-		if (chunk == null)
-			return null;
-		return chunk.getTissularity();
-	}
-
 	private void pushVisitor(Cellularity pCellularity, int pX, int pY, int pZ) {
-		Cellularity chunk = pCellularity.isChunk() ? pCellularity : pCellularity.getChunk();
-		Tissularity tissularity = chunk.getTissularity();
+		Tissularity tissularity = pCellularity.getTissularity();
 
-		Cellularity cellularity = pCellularity;
+		Vector2 p = pCellularity.localToChunk(pX + 0.5f, pY + 0.5f);
+		float x = p.x;
+		float y = p.y;
 
-		MetaBody body = cellularity.getBody();
-		float c = (float) Math.cos(body.getAngle());
-		float s = (float) Math.sin(body.getAngle());
-		float offset = cellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
-		float x = body.getPositionX() + (pX - offset + 0.5f) * c - (pY - offset + 0.5f) * s;
-		float y = body.getPositionY() + (pX - offset + 0.5f) * s + (pY - offset + 0.5f) * c;
-		int lx =
-				MathUtils.divFloor(MathUtils.floor(x) - (Settings.VISITOR_WIDTH + 1) / 2,
-						Settings.CHUNK_SIZE)
-						+ chunk.getX();
+		int lx = pCellularity.localToGlobalX(MathUtils.floor(x) - (Settings.VISITOR_WIDTH + 1) / 2);
 		int ly =
-				MathUtils.divFloor(MathUtils.floor(y) - (Settings.VISITOR_HEIGHT + 1) / 2,
-						Settings.CHUNK_SIZE)
-						+ chunk.getY();
-		int rx =
-				MathUtils.divFloor(MathUtils.ceil(x) + (Settings.VISITOR_WIDTH - 1) / 2,
-						Settings.CHUNK_SIZE)
-						+ chunk.getX();
-		int ry =
-				MathUtils.divFloor(MathUtils.ceil(y) + (Settings.VISITOR_HEIGHT - 1) / 2,
-						Settings.CHUNK_SIZE)
-						+ chunk.getY();
+				pCellularity.localToGlobalY(MathUtils.floor(y) - (Settings.VISITOR_HEIGHT + 1) / 2);
+		int rx = pCellularity.localToGlobalX(MathUtils.ceil(x) + (Settings.VISITOR_WIDTH - 1) / 2);
+		int ry = pCellularity.localToGlobalY(MathUtils.ceil(y) + (Settings.VISITOR_HEIGHT - 1) / 2);
 		int width = rx - lx + 1;
 		int height = ry - ly + 1;
 		if (mIsVisitor)

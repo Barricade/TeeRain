@@ -1,12 +1,10 @@
 package com.gaskarov.teerain.game.hud;
 
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
-import com.gaskarov.teerain.core.Cell;
-import com.gaskarov.teerain.core.Cellularity;
+import com.gaskarov.teerain.core.Cells;
 import com.gaskarov.teerain.core.Organularity;
 import com.gaskarov.teerain.core.Tissularity;
-import com.gaskarov.teerain.core.VacuumCell;
+import com.gaskarov.teerain.core.cellularity.ChunkCellularity;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.game.Player;
 import com.gaskarov.util.constants.GlobalConstants;
@@ -78,15 +76,6 @@ public final class HUDTissularity extends Tissularity {
 		OrthographicCamera camera = mOrganularity.getCamera();
 		mCameraX = 5.0f - mOffsetX;
 		mCameraY = 0.0f - mOffsetY + camera.viewportHeight / Settings.TILE_RENDER_HUD / 2;
-	}
-
-	@Override
-	public void render(long pTime) {
-		if (mOrganularity == null)
-			return;
-		OrthographicCamera camera = mOrganularity.getCamera();
-		render(Settings.TILE_RENDER_HUD, camera.viewportWidth / Settings.TILE_RENDER_HUD,
-				camera.viewportHeight / Settings.TILE_RENDER_HUD, pTime);
 	}
 
 	@Override
@@ -219,23 +208,34 @@ public final class HUDTissularity extends Tissularity {
 		private void load() {
 
 			long seed = 0;
-			Cellularity chunk = Cellularity.obtain(BodyType.StaticBody, 0, 0, 0);
+			ChunkCellularity chunk = ChunkCellularity.obtain();
 			int offsetX = mX << Settings.CHUNK_SIZE_LOG;
 			int offsetY = mY << Settings.CHUNK_SIZE_LOG;
 			for (int z = Settings.CHUNK_MIN_DEPTH; z <= Settings.CHUNK_MAX_DEPTH; ++z)
 				for (int y = Settings.CHUNK_BOTTOM; y <= Settings.CHUNK_TOP; ++y)
 					for (int x = Settings.CHUNK_LEFT; x <= Settings.CHUNK_RIGHT; ++x) {
-						chunk.setCell(x, y, z, genWorld(seed, offsetX + x, offsetY + y, z));
+						chunk.setCell(x, y, z, genWorld(seed, offsetX + x, offsetY + y, z), null);
 						chunk.setLight(x, y, z, 0, 0, 0);
+						chunk.setAI(x, y, z, 0);
 					}
 			for (int i = 0; i < 16; ++i) {
-				chunk.precalc(1);
-				chunk.update();
+				chunk.precalcCells(chunk.cellUpdate());
+				chunk.updateCells();
+			}
+			for (int i = 0; i < 16; ++i) {
+				chunk.precalcLight(chunk.lightUpdate());
+				chunk.updateLight();
+			}
+			for (int i = 0; i < 16; ++i) {
+				chunk.precalcAI(chunk.aiUpdate());
+				chunk.updateAI();
 			}
 			chunk.drop();
 			chunk.postDrop();
-			chunk.refresh();
-			chunk.precalc(1);
+			chunk.refreshCells();
+			chunk.precalcCells(chunk.cellUpdate());
+			chunk.precalcLight(chunk.lightUpdate());
+			chunk.precalcAI(chunk.aiUpdate());
 
 			mChunkHolder.setChunk(chunk);
 
@@ -245,31 +245,22 @@ public final class HUDTissularity extends Tissularity {
 		}
 
 		private void unload() {
-			Cellularity chunk = mChunkHolder.getChunk();
+			ChunkCellularity chunk = mChunkHolder.getChunk();
 			mChunkHolder.setChunk(null);
-			Cellularity.recycle(chunk);
+			ChunkCellularity.recycle(chunk);
 			synchronized (mTissularity.getOrganularity()) {
 				mChunkHolder.finish();
 			}
 		}
 
-		private Cell genWorld(long pSeed, int pX, int pY, int pZ) {
+		private int genWorld(long pSeed, int pX, int pY, int pZ) {
 
-			final int AIR_CELL_ID = 0;
-			final int UI_CELL_ID = 1;
-			int ans = AIR_CELL_ID;
+			int ans = Cells.CELL_TYPE_VACUUM;
 
-			if (pY == 0 && 0 <= pX && pX < 10 && pZ == 0)
-				ans = UI_CELL_ID;
+//			if (pY == 0 && 0 <= pX && pX < 10 && pZ == 0)
+//				ans = Cells.CELL_TYPE_UI;
 
-			switch (ans) {
-			case AIR_CELL_ID:
-				return VacuumCell.obtain();
-			case UI_CELL_ID:
-				return UICell.obtain();
-			default:
-				return null;
-			}
+			return ans;
 		}
 
 	}

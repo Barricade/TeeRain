@@ -90,6 +90,10 @@ public class TimeMeasure {
 		sM6.globalStart();
 		sM7.globalStart();
 		sM8.globalStart();
+		sM9.globalStart();
+		sM10.globalStart();
+		sM11.globalStart();
+		sM12.globalStart();
 	}
 
 	public static synchronized void end() {
@@ -101,13 +105,13 @@ public class TimeMeasure {
 		sM6.globalEnd();
 		sM7.globalEnd();
 		sM8.globalEnd();
+		sM9.globalEnd();
+		sM10.globalEnd();
+		sM11.globalEnd();
+		sM12.globalEnd();
 	}
 
 	public static synchronized void start2() {
-		sM9.globalStart();
-		sM10.globalStart();
-		sM11.globalStart();
-		sM12.globalStart();
 		sM13.globalStart();
 		sM14.globalStart();
 		sM15.globalStart();
@@ -115,10 +119,6 @@ public class TimeMeasure {
 	}
 
 	public static synchronized void end2() {
-		sM9.globalEnd();
-		sM10.globalEnd();
-		sM11.globalEnd();
-		sM12.globalEnd();
 		sM13.globalEnd();
 		sM14.globalEnd();
 		sM15.globalEnd();

@@ -80,6 +80,9 @@ public final class Cellularity {
 
 	private final Vector2 mTmpVec2 = new Vector2();
 
+	private final boolean[] mTmpAISolid = new boolean[MOVE_AROUND_SIZE];
+	private final int[] mTmpAIAround = new int[MOVE_AROUND_SIZE];
+
 	private final int[] mTmpLight = new int[COLORS];
 	private final int[] mTmpLightAround = new int[MOVE_AROUND_SIZE << COLORS_LOG];
 
@@ -289,61 +292,70 @@ public final class Cellularity {
 			final int x0 = getValX(val0);
 			final int y0 = getValY(val0);
 			final int z0 = getValZ(val0);
-			int oldAI = mAI[val0];
-			int oldAIField = oldAI & 255;
-			int oldAIVertical = (oldAI >>> 8) & 15;
-			int oldAIHorizontal = oldAI >>> 12;
 			int aiField0 = 0;
 			int aiVertical0 = 0;
 			int aiHorizontal0 = 0;
-			Cellularity tmpChunk = getChunk(x0, y0 - 1);
-			boolean flag1 =
-					tmpChunk != null
-							&& tmpChunk.getCellHelper(x0, y0 - 1 & CHUNK_SIZE_MASK, z0).isSolid();
-			boolean flag2 = getCellHelper(x0, y0, z0).isSolid();
 			for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
 				final int vx = MOVE_AROUND_X[j];
 				final int vy = MOVE_AROUND_Y[j];
 				final int x = x0 + vx;
 				final int y = y0 + vy;
-				final int z = z0;
 				final Cellularity chunk = getChunk(x, y);
 				if (chunk != null) {
 					final int localX = x & CHUNK_SIZE_MASK;
 					final int localY = y & CHUNK_SIZE_MASK;
-					final int val = getVal(localX, localY, z);
-					Cell cell = chunk.getCellHelper(localX, localY, z);
+					final int val = getVal(localX, localY, z0);
+					Cell cell = chunk.getCellHelper(localX, localY, z0);
 					final int aiResistance =
 							(vx == 0 || vy == 0) ? cell.aiResistance() : cell
 									.aiDiagonalResistance();
+					mTmpAISolid[j] = cell.isSolid();
 					int ai = chunk.mAI[val];
 					int aiField = Math.max((ai & 255) - aiResistance, 0);
 					int aiVertical = (vy == -1 ? Math.max(0, ((ai >>> 8) & 15) - 1) : 0);
 					int aiHorizontal = (vy == 1 ? Math.max(0, (ai >>> 12) - 1) : 0);
-					if (flag2) {
-						aiVertical = 0;
-						aiHorizontal = 0;
-					} else if (flag1) {
-						aiVertical = 5;
-						aiHorizontal = 15;
+					mTmpAIAround[j] = aiField | (aiVertical << 8) | (aiHorizontal << 12);
+				} else {
+					mTmpAISolid[j] = false;
+					mTmpAIAround[j] = 0;
+				}
+			}
+			if (!getCellHelper(x0, y0, z0).isSolid()) {
+				if (mTmpAISolid[6]) {
+					aiVertical0 = 6;
+					aiHorizontal0 = 15;
+				} else {
+					for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
+						if ((j & 1) == 0 || !mTmpAISolid[j - 1 & 7] && !mTmpAISolid[j + 1 & 7]) {
+							int ai = mTmpAIAround[j];
+							int aiVertical = (ai >>> 8) & 15;
+							int aiHorizontal = ai >>> 12;
+							aiVertical0 = Math.max(aiVertical0, aiVertical);
+							aiHorizontal0 = Math.max(aiHorizontal0, aiHorizontal);
+						}
 					}
+					if (aiVertical0 != 0)
+						aiHorizontal0 = 15;
+				}
+			}
+			for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
+				if ((j & 1) == 0 || !mTmpAISolid[j - 1 & 7] && !mTmpAISolid[j + 1 & 7]) {
+					final int vy = MOVE_AROUND_Y[j];
+					int ai = mTmpAIAround[j];
+					int aiField = ai & 255;
 					if (vy == 0) {
-						if (oldAIVertical == 0 || oldAIHorizontal == 0)
+						if (aiVertical0 == 0 || aiHorizontal0 == 0)
 							aiField = 0;
 					} else if (vy == -1) {
-						if (oldAIHorizontal == 0)
+						if (aiHorizontal0 == 0)
 							aiField = 0;
 					} else {
-						if (oldAIVertical == 0)
+						if (aiVertical0 == 0)
 							aiField = 0;
 					}
 					aiField0 = Math.max(aiField0, aiField);
-					aiVertical0 = Math.max(aiVertical0, aiVertical);
-					aiHorizontal0 = Math.max(aiHorizontal0, aiHorizontal);
 				}
 			}
-			if (!flag2 && !flag1 && aiVertical0 != 0)
-				aiHorizontal0 = 15;
 			final int ai0 = aiField0 | (aiVertical0 << 8) | (aiHorizontal0 << 12);
 			if (mAI[val0] != ai0) {
 				mAIModified[val0] = (short) ai0;
@@ -440,7 +452,8 @@ public final class Cellularity {
 				if (chunk != null) {
 					final int val = getVal(x & CHUNK_SIZE_MASK, y & CHUNK_SIZE_MASK, z);
 					chunk.mAIUpdate.set(val);
-					chunk.mRender.set(val);
+					if (Settings.AI_DEBUG_RENDER)
+						chunk.mRender.set(val);
 				}
 			}
 		}
@@ -1156,7 +1169,8 @@ public final class Cellularity {
 	private void invalidateAIHelper(int pX, int pY, int pZ) {
 		final int val = getVal(pX, pY, pZ);
 		mAIUpdate.set(val);
-		mRender.set(val);
+		if (Settings.AI_DEBUG_RENDER)
+			mRender.set(val);
 		mAIModifiedKeys.remove(val);
 	}
 
@@ -1179,11 +1193,13 @@ public final class Cellularity {
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
 				for (int i = CHUNK_BOTTOM; i <= CHUNK_TOP; ++i) {
+					chunk.invalidateAIHelper(CHUNK_LEFT, i, z);
 					chunk.invalidateLightHelper(CHUNK_LEFT, i, z);
 					chunk.invalidateCellHelper(CHUNK_LEFT, i, z);
 					chunk.invalidateDropHelper(CHUNK_LEFT, i, z);
 				}
 				for (int i = bottom; i <= top; ++i) {
+					invalidateAIHelper(CHUNK_RIGHT, i, z);
 					invalidateLightHelper(CHUNK_RIGHT, i, z);
 					invalidateCellHelper(CHUNK_RIGHT, i, z);
 					invalidateDropHelper(CHUNK_RIGHT, i, z);
@@ -1195,6 +1211,7 @@ public final class Cellularity {
 		chunk = mChunks[2][2];
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
+				chunk.invalidateAIHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
 				chunk.invalidateLightHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
 				chunk.invalidateCellHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
 				chunk.invalidateDropHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
@@ -1205,11 +1222,13 @@ public final class Cellularity {
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
 				for (int i = CHUNK_LEFT; i <= CHUNK_RIGHT; ++i) {
+					chunk.invalidateAIHelper(i, CHUNK_BOTTOM, z);
 					chunk.invalidateLightHelper(i, CHUNK_BOTTOM, z);
 					chunk.invalidateCellHelper(i, CHUNK_BOTTOM, z);
 					chunk.invalidateDropHelper(i, CHUNK_BOTTOM, z);
 				}
 				for (int i = left; i <= right; ++i) {
+					invalidateAIHelper(i, CHUNK_TOP, z);
 					invalidateLightHelper(i, CHUNK_TOP, z);
 					invalidateCellHelper(i, CHUNK_TOP, z);
 					invalidateDropHelper(i, CHUNK_TOP, z);
@@ -1221,6 +1240,7 @@ public final class Cellularity {
 		chunk = mChunks[2][0];
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
+				chunk.invalidateAIHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
 				chunk.invalidateLightHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
 				chunk.invalidateCellHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
 				chunk.invalidateDropHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
@@ -1231,11 +1251,13 @@ public final class Cellularity {
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
 				for (int i = CHUNK_BOTTOM; i <= CHUNK_TOP; ++i) {
+					chunk.invalidateAIHelper(CHUNK_RIGHT, i, z);
 					chunk.invalidateLightHelper(CHUNK_RIGHT, i, z);
 					chunk.invalidateCellHelper(CHUNK_RIGHT, i, z);
 					chunk.invalidateDropHelper(CHUNK_RIGHT, i, z);
 				}
 				for (int i = bottom; i <= top; ++i) {
+					invalidateAIHelper(CHUNK_LEFT, i, z);
 					invalidateLightHelper(CHUNK_LEFT, i, z);
 					invalidateCellHelper(CHUNK_LEFT, i, z);
 					invalidateDropHelper(CHUNK_LEFT, i, z);
@@ -1247,6 +1269,7 @@ public final class Cellularity {
 		chunk = mChunks[0][0];
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
+				chunk.invalidateAIHelper(CHUNK_RIGHT, CHUNK_TOP, z);
 				chunk.invalidateLightHelper(CHUNK_RIGHT, CHUNK_TOP, z);
 				chunk.invalidateCellHelper(CHUNK_RIGHT, CHUNK_TOP, z);
 				chunk.invalidateDropHelper(CHUNK_RIGHT, CHUNK_TOP, z);
@@ -1257,11 +1280,13 @@ public final class Cellularity {
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
 				for (int i = CHUNK_LEFT; i <= CHUNK_RIGHT; ++i) {
+					chunk.invalidateAIHelper(i, CHUNK_TOP, z);
 					chunk.invalidateLightHelper(i, CHUNK_TOP, z);
 					chunk.invalidateCellHelper(i, CHUNK_TOP, z);
 					chunk.invalidateDropHelper(i, CHUNK_TOP, z);
 				}
 				for (int i = left; i <= right; ++i) {
+					invalidateAIHelper(i, CHUNK_BOTTOM, z);
 					invalidateLightHelper(i, CHUNK_BOTTOM, z);
 					invalidateCellHelper(i, CHUNK_BOTTOM, z);
 					invalidateDropHelper(i, CHUNK_BOTTOM, z);
@@ -1273,6 +1298,7 @@ public final class Cellularity {
 		chunk = mChunks[0][2];
 		if (chunk != null) {
 			for (int z = CHUNK_MIN_DEPTH; z <= CHUNK_MAX_DEPTH; ++z) {
+				chunk.invalidateAIHelper(CHUNK_LEFT, CHUNK_TOP, z);
 				chunk.invalidateLightHelper(CHUNK_LEFT, CHUNK_TOP, z);
 				chunk.invalidateCellHelper(CHUNK_LEFT, CHUNK_TOP, z);
 				chunk.invalidateDropHelper(CHUNK_LEFT, CHUNK_TOP, z);
@@ -1282,24 +1308,28 @@ public final class Cellularity {
 
 		if (leftBottom)
 			for (int z = 0; z < CHUNK_DEPTH; ++z) {
+				invalidateAIHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
 				invalidateLightHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
 				invalidateCellHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
 				invalidateDropHelper(CHUNK_LEFT, CHUNK_BOTTOM, z);
 			}
 		if (rightBottom)
 			for (int z = 0; z < CHUNK_DEPTH; ++z) {
+				invalidateAIHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
 				invalidateLightHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
 				invalidateCellHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
 				invalidateDropHelper(CHUNK_RIGHT, CHUNK_BOTTOM, z);
 			}
 		if (leftTop)
 			for (int z = 0; z < CHUNK_DEPTH; ++z) {
+				invalidateAIHelper(CHUNK_LEFT, CHUNK_TOP, z);
 				invalidateLightHelper(CHUNK_LEFT, CHUNK_TOP, z);
 				invalidateCellHelper(CHUNK_LEFT, CHUNK_TOP, z);
 				invalidateDropHelper(CHUNK_LEFT, CHUNK_TOP, z);
 			}
 		if (rightTop)
 			for (int z = 0; z < CHUNK_DEPTH; ++z) {
+				invalidateAIHelper(CHUNK_RIGHT, CHUNK_TOP, z);
 				invalidateLightHelper(CHUNK_RIGHT, CHUNK_TOP, z);
 				invalidateCellHelper(CHUNK_RIGHT, CHUNK_TOP, z);
 				invalidateDropHelper(CHUNK_RIGHT, CHUNK_TOP, z);
@@ -1315,15 +1345,15 @@ public final class Cellularity {
 	}
 
 	private int skyR(int pX, int pY) {
-		return 1024;
+		return 256;
 	}
 
 	private int skyG(int pX, int pY) {
-		return 1024;
+		return 256;
 	}
 
 	private int skyB(int pX, int pY) {
-		return 1024;
+		return 256;
 	}
 
 	private Cellularity getChunk(int pX, int pY) {

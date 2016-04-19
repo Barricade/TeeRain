@@ -1,15 +1,19 @@
 package com.gaskarov.teerain.game;
 
+import static com.gaskarov.util.constants.ArrayConstants.MOVE_AROUND_SIZE;
+import static com.gaskarov.util.constants.ArrayConstants.MOVE_AROUND_X;
+import static com.gaskarov.util.constants.ArrayConstants.MOVE_AROUND_Y;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.gaskarov.teerain.core.Cellularity;
+import com.gaskarov.teerain.core.Cells;
 import com.gaskarov.teerain.core.Organularity;
 import com.gaskarov.teerain.core.Tissularity;
+import com.gaskarov.teerain.core.cellularity.Cellularity;
 import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.game.game.ControlOrganoid;
-import com.gaskarov.teerain.game.game.cell.HammerCell;
 import com.gaskarov.util.common.IntVector1;
 import com.gaskarov.util.common.KeyValuePair;
 import com.gaskarov.util.common.MathUtils;
@@ -37,8 +41,8 @@ public final class Controller {
 	private static final Array sPool = Array.obtain();
 
 	private final IntVector1 mTmp = IntVector1.obtain(0);
-	private final int[][] mTmpA33 = new int[3][3];
-	private final int[][] mTmpB33 = new int[3][3];
+	private final boolean[] mTmpAISolid = new boolean[MOVE_AROUND_SIZE];
+	private final int[] mTmpAIAround = new int[MOVE_AROUND_SIZE];
 
 	private Player mPlayer;
 	private Player mBot;
@@ -87,7 +91,7 @@ public final class Controller {
 		Controller obj = obtainPure();
 		obj.mPlayer = pPlayer;
 		obj.mBot = Player.obtain();
-		obj.mBot.setItem(1, HammerCell.obtain());
+		obj.mBot.setItem(1, Cells.CELL_TYPE_HAMMER, null);
 		obj.mControlMove = 0;
 		obj.mJump = false;
 		for (int i = 0; i < obj.mPointersControlMove.length; ++i)
@@ -133,9 +137,8 @@ public final class Controller {
 		MetaBody body = cellularity.getBody();
 		float c = (float) Math.cos(body.getAngle());
 		float s = (float) Math.sin(body.getAngle());
-		float offset = cellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
-		Cellularity chunk = cellularity.isChunk() ? cellularity : cellularity.getChunk();
-		Tissularity tissularity = chunk.getTissularity();
+		float offset = cellularity.isChunk() ? 0 : Settings.MAX_DROP_HSIZE;
+		Tissularity tissularity = cellularity.getTissularity();
 		float nextCameraX =
 				body.getOffsetX() + body.getPositionX() + (x - offset + 0.5f) * c
 						- (y - offset + 0.5f) * s;
@@ -149,7 +152,7 @@ public final class Controller {
 		int posX = pTissularity.getOffsetX() + MathUtils.floor(nextCameraX);
 		int posY = pTissularity.getOffsetX() + MathUtils.floor(nextCameraY);
 		int ai = pTissularity.getAI(posX, posY, z);
-		pTissularity.setAI(posX, posY, z, 255, (ai >>> 8) & 15, ai >>> 12);
+		pTissularity.setAI(posX, posY, z, 255 | (ai & ~255));
 	}
 
 	private void controlBot(Tissularity pTissularity, ControlOrganoid pControlOrganoid) {
@@ -160,9 +163,8 @@ public final class Controller {
 		MetaBody body = cellularity.getBody();
 		float c = (float) Math.cos(body.getAngle());
 		float s = (float) Math.sin(body.getAngle());
-		float offset = cellularity.isChunk() ? 0 : Settings.CHUNK_HSIZE;
-		Cellularity chunk = cellularity.isChunk() ? cellularity : cellularity.getChunk();
-		Tissularity tissularity = chunk.getTissularity();
+		float offset = cellularity.isChunk() ? 0 : Settings.MAX_DROP_HSIZE;
+		Tissularity tissularity = cellularity.getTissularity();
 		float posX =
 				body.getOffsetX() + body.getPositionX() + (x - offset + 0.5f) * c
 						- (y - offset + 0.5f) * s;
@@ -172,43 +174,85 @@ public final class Controller {
 		int coordX = tissularity.getOffsetX() + MathUtils.floor(posX);
 		int coordY = tissularity.getOffsetY() + MathUtils.floor(posY);
 
+		for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
+			final int tmpX = coordX + MOVE_AROUND_X[j];
+			final int tmpY = coordY + MOVE_AROUND_Y[j];
+			mTmpAISolid[j] = pTissularity.isSolid(tmpX, tmpY, z);
+			mTmpAIAround[j] = pTissularity.getAI(tmpX, tmpY, z);
+		}
+
+		int tmpAI = pTissularity.getAI(coordX, coordY, z);
+		int tmpAIField = tmpAI & 255;
+		int tmpAIVertical = (tmpAI >>> 8) & 15;
+
 		int maxX = 0;
 		int maxY = 0;
-		boolean flag = !pControlOrganoid.isGrounded() && body.getVelocityY() < 1.0f;
-		for (int i = -1; i <= 1; ++i)
-			for (int j = -1; j <= 1; ++j) {
-				int ai = tissularity.getAI(coordX + j, coordY + i, z);
+		int maxA;
+		int maxB;
+		boolean flag = !pControlOrganoid.isGrounded() && body.getVelocityY() < 0f;
+		if (flag) {
+			maxA = tmpAIVertical;
+			maxB = tmpAIField;
+		} else {
+			maxA = tmpAIField;
+			maxB = tmpAIVertical;
+		}
+		for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
+			if ((j & 1) == 0 || !mTmpAISolid[j - 1 & 7] && !mTmpAISolid[j + 1 & 7]) {
+				int vx = MOVE_AROUND_X[j];
+				int vy = MOVE_AROUND_Y[j];
+				if (vy == 1 && body.getVelocityY() < 0)
+					continue;
+				if (vy == 0 && body.getVelocityY() < 0 && posY - coordY < 0.5f)
+					continue;
+				int ai = mTmpAIAround[j];
+				int aiField = ai & 255;
+				int aiVertical = (ai >>> 8) & 15;
+				int a;
+				int b;
 				if (flag) {
-					mTmpA33[1 + i][1 + j] =
-							i == -1 || i == 0 && posY - coordY > 0.5f ? (ai >>> 8) & 15 : 0;
-					mTmpB33[1 + i][1 + j] = ai & 255;
+					a = aiVertical;
+					b = aiField;
 				} else {
-					mTmpA33[1 + i][1 + j] = ai & 255;
-					mTmpB33[1 + i][1 + j] =
-							i == -1 || i == 0 && posY - coordY > 0.5f ? (ai >>> 8) & 15 : 0;
+					a = aiField;
+					b = aiVertical;
 				}
-				if (mTmpA33[1 + i][1 + j] > mTmpA33[maxY][maxX]
-						|| mTmpA33[1 + i][1 + j] == mTmpA33[maxY][maxX]
-						&& mTmpB33[1 + i][1 + j] > mTmpB33[maxY][maxX]) {
-					maxX = 1 + j;
-					maxY = 1 + i;
+				if (a > maxA || a == maxA && b > maxB) {
+					maxA = a;
+					maxB = b;
+					maxX = vx;
+					maxY = vy;
 				}
 			}
-		if (maxX == 0)
+		}
+
+		if (maxX == -1)
 			pControlOrganoid.setControlMove(-1);
-		else if (maxX == 2)
+		else if (maxX == 1)
 			pControlOrganoid.setControlMove(1);
 		else {
-			if (posX - coordX < 0.45f)
-				pControlOrganoid.setControlMove(1);
-			else if (posX - coordX > 0.55f)
-				pControlOrganoid.setControlMove(-1);
-			else
+			float dx = 0.5f - (posX - coordX);
+			float vx = body.getVelocityX();
+			float accel = -0.5f * vx * vx / dx;
+			float frictionX =
+					posX - coordX + -0.5f * vx * vx / Settings.AIR_FRICTION * (vx > 0 ? -1 : 1);
+			if (0.48f < frictionX && frictionX < 0.52f)
 				pControlOrganoid.setControlMove(0);
+			else if (posX - coordX < 0.5f) {
+				if (vx <= 0 || accel > -Settings.AIR_CONTROL_ACCEL)
+					pControlOrganoid.setControlMove(1);
+				else
+					pControlOrganoid.setControlMove(-1);
+			} else {
+				if (vx >= 0 || accel < Settings.AIR_CONTROL_ACCEL)
+					pControlOrganoid.setControlMove(-1);
+				else
+					pControlOrganoid.setControlMove(1);
+			}
 		}
-		if (maxY == 2
-				&& !(maxX == 2 && (posX - coordX < 0.2f || body.getVelocityX() < 0) || maxX == 0
-						&& (posX - coordX > 0.8f || body.getVelocityX() > 0)))
+		if (maxY == 1
+				&& !(maxX == 1 && (posX - coordX < 0.75f || body.getVelocityX() < 0) || maxX == -1
+						&& (posX - coordX > 0.25f || body.getVelocityX() > 0)))
 			pControlOrganoid.setJump(true);
 		else
 			pControlOrganoid.setJump(false);
@@ -285,8 +329,9 @@ public final class Controller {
 				int y = controlOrganoid.getY();
 				int z = controlOrganoid.getZ();
 				Cellularity cellularity = controlOrganoid.getCellularity();
-				mPlayer.getItem(mPlayer.getUseItem()).touchDown(cellularity, x, y, z, clickX,
-						clickY, controlOrganoid, mPlayer, mPlayer.getUseItem());
+				cellularity.touchDown(mPlayer.getItem(mPlayer.getUseItem()), mPlayer
+						.getItemData(mPlayer.getUseItem()), cellularity.getCell(x, y, z), x, y, z,
+						clickX, clickY, controlOrganoid, mPlayer);
 			}
 		}
 		// touchDragged(pTissularity, pScreenX, pScreenY, pPointer);
@@ -344,11 +389,9 @@ public final class Controller {
 
 	public void scrolled(Tissularity pTissularity, int pAmount) {
 		int useItem = mPlayer.getUseItem() + pAmount;
-		if (useItem < Player.USE_ITEM_MIN_ID)
-			useItem = Player.USE_ITEM_MAX_ID;
-		else if (useItem > Player.USE_ITEM_MAX_ID)
-			useItem = Player.USE_ITEM_MIN_ID;
-		mPlayer.setUseItem(useItem);
+		mPlayer.setUseItem(MathUtils.mod(useItem - Player.USE_ITEM_MIN_ID, Player.USE_ITEM_MAX_ID
+				- Player.USE_ITEM_MIN_ID + 1)
+				+ Player.USE_ITEM_MIN_ID);
 	}
 
 	private static float screenToWorldX(Tissularity pTissularity, int pScreenX) {

@@ -71,7 +71,7 @@ public final class TeeCell extends Cell {
 	@Override
 	public void attach(Cellularity pCellularity, int pX, int pY, int pZ) {
 		pCellularity.setCellLightData(pX, pY, pZ, Settings.SOLID_LIGHT_RESISTANCE_ID,
-				Settings.NO_LIGHT_SOURCE_ID);
+				Settings.TORCH_LAMP_LIGHT_SOURCE_ID);
 		DynamicLight.attach(pCellularity, pX, pY, pZ, this);
 		mPhysicsWallOrganoid.attach(pCellularity, pX, pY, pZ, this);
 		mControlOrganoid.attach(pCellularity, pX, pY, pZ, this);
@@ -326,7 +326,7 @@ public final class TeeCell extends Cell {
 		TeeCell obj = obtainPure();
 		obj.mPhysicsWallOrganoid = PhysicsWallOrganoid.obtain();
 		obj.mControlOrganoid = ControlOrganoid.obtain(pId);
-		obj.mVisitorOrganoid = VisitorOrganoid.obtain();
+		obj.mVisitorOrganoid = VisitorOrganoid.obtain(pId != 1);
 		return obj;
 	}
 

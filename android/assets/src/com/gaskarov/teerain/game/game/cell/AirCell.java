@@ -58,7 +58,8 @@ public final class AirCell extends Cell {
 			switch (i) {
 			case 0: {
 				int count = 0;
-				count += GraphicsUtils.debugRender(this, pCellularity, pX, pY, pZ, pCos, pSin);
+				if (Settings.AI_DEBUG_RENDER)
+					count += GraphicsUtils.debugRender(this, pCellularity, pX, pY, pZ, pCos, pSin);
 				GraphicsUtils.count(pCellularity, count);
 				break;
 			}

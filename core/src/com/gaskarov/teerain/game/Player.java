@@ -1,8 +1,8 @@
 package com.gaskarov.teerain.game;
 
-import com.gaskarov.teerain.core.Cell;
-import com.gaskarov.teerain.core.Cellularity;
-import com.gaskarov.teerain.core.VacuumCell;
+import com.gaskarov.teerain.core.Cells;
+import com.gaskarov.teerain.core.cellularity.Cellularity;
+import com.gaskarov.teerain.core.cellularity.Cellularity.CellData;
 import com.gaskarov.teerain.game.game.ControlOrganoid;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
@@ -32,7 +32,8 @@ public final class Player {
 	private static final Array sPool = Array.obtain();
 
 	private int mUseItem;
-	private final Cell[] mItems = new Cell[MAX_ITEMS];
+	private final int[] mItems = new int[MAX_ITEMS];
+	private final CellData[] mItemsData = new CellData[MAX_ITEMS];
 	private final LinkedIntTable mItemsKeys = LinkedIntTable.obtain(MAX_ITEMS);
 
 	// ===========================================================
@@ -81,34 +82,39 @@ public final class Player {
 		Player obj = obtainPure();
 		obj.mUseItem = USE_ITEM_MIN_ID;
 		for (int i = 0; i < MAX_ITEMS; ++i)
-			obj.mItems[i] = VacuumCell.obtain();
+			obj.mItems[i] = Cells.CELL_TYPE_VACUUM;
 		return obj;
 	}
 
 	public static void recycle(Player pObj) {
 		while (pObj.mItemsKeys.size() > 0) {
 			int id = pObj.mItemsKeys.pop();
-			pObj.mItems[id].recycle();
-			pObj.mItems[id] = null;
+			if (pObj.mItemsData[id] != null) {
+				pObj.mItemsData[id].recycle();
+				pObj.mItemsData[id] = null;
+			}
 		}
 		recyclePure(pObj);
 	}
 
 	public void control(Cellularity pCellularity, int pX, int pY, int pZ,
 			ControlOrganoid pControlOrganoid) {
-		pControlOrganoid.setSpecialItem(mItems[SPECIAL_ITEM_ID] != null ? mItems[SPECIAL_ITEM_ID]
-				: VacuumCell.obtain());
-		pControlOrganoid.setUseItem(mItems[mUseItem] != null ? mItems[mUseItem] : VacuumCell
-				.obtain());
+		pControlOrganoid.setSpecialItem(mItems[SPECIAL_ITEM_ID], mItemsData[SPECIAL_ITEM_ID]);
+		pControlOrganoid.setUseItem(mItems[mUseItem], mItemsData[mUseItem]);
 	}
 
-	public Cell getItem(int pId) {
+	public int getItem(int pId) {
 		return mItems[pId];
 	}
 
-	public void setItem(int pId, Cell pItem) {
+	public CellData getItemData(int pId) {
+		return mItemsData[pId];
+	}
+
+	public void setItem(int pId, int pItem, CellData pItemData) {
 		mItems[pId] = pItem;
-		if (pItem != VacuumCell.obtain())
+		mItemsData[pId] = pItemData;
+		if (pItem != Cells.CELL_TYPE_VACUUM)
 			mItemsKeys.set(pId);
 		else
 			mItemsKeys.remove(pId);

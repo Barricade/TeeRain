@@ -1,21 +1,27 @@
 package com.gaskarov.teerain.game.game;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Matrix4;
-import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
-import com.gaskarov.teerain.core.Cell;
-import com.gaskarov.teerain.core.Cellularity;
+import com.gaskarov.teerain.core.Cells;
 import com.gaskarov.teerain.core.Tissularity;
+import com.gaskarov.teerain.core.cellularity.ChunkCellularity;
+import com.gaskarov.teerain.core.cellularity.DynamicCellularity;
+import com.gaskarov.teerain.core.util.MetaBody;
 import com.gaskarov.teerain.core.util.Settings;
-import com.gaskarov.teerain.debug.TimeMeasure;
 import com.gaskarov.teerain.game.Controller;
-import com.gaskarov.teerain.game.game.cell.AirCell;
-import com.gaskarov.teerain.game.game.cell.GroundCell;
-import com.gaskarov.teerain.game.game.cell.RockCell;
-import com.gaskarov.teerain.game.game.cell.TeeCell;
 import com.gaskarov.util.common.NoiseMath;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
+import com.gaskarov.util.container.LinkedHashTable;
+import com.gaskarov.util.container.List;
+import com.gaskarov.util.pool.BinaryByteArrayPool;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -68,18 +74,11 @@ public final class GameTissularity extends Tissularity {
 	}
 
 	@Override
-	public void render(long pTime) {
-		if (mOrganularity == null)
-			return;
-		OrthographicCamera camera = mOrganularity.getCamera();
-		TimeMeasure.sM11.start();
-		render(Settings.TILE_RENDER, camera.viewportWidth / Settings.TILE_RENDER,
-				camera.viewportHeight / Settings.TILE_RENDER, pTime);
-		TimeMeasure.sM11.end();
-	}
-
-	@Override
 	public boolean keyDown(int pKeycode) {
+		if (pKeycode == Keys.ESCAPE) {
+			Gdx.app.exit();
+			return false;
+		}
 		mController.keyDown(this, pKeycode);
 		return true;
 	}
@@ -163,13 +162,13 @@ public final class GameTissularity extends Tissularity {
 		int h = ChunkLoader.getY(0);
 		int chunkX = w >> Settings.CHUNK_SIZE_LOG;
 		int chunkY = h >> Settings.CHUNK_SIZE_LOG;
-		addVisitor(chunkX, chunkY, 1, 1);
+		addVisitor(w, h, 1, 1);
 		waitChunks();
-		Cellularity chunk = getChunk(chunkX, chunkY);
-		chunk.setCell(w & Settings.CHUNK_SIZE_MASK, h & Settings.CHUNK_SIZE_MASK, 0, TeeCell
-				.obtain(0));
+		ChunkCellularity chunk = getChunk(chunkX, chunkY);
+		chunk.setCell(w & Settings.CHUNK_SIZE_MASK, h & Settings.CHUNK_SIZE_MASK, 0,
+				Cells.CELL_TYPE_TEE, TeeCellData.obtain(0));
 		waitChunks();
-		removeVisitor(chunkX, chunkY, 1, 1);
+		removeVisitor(w, h, 1, 1);
 	}
 
 	public void renderDebug() {
@@ -192,7 +191,12 @@ public final class GameTissularity extends Tissularity {
 
 	public static class ChunkLoader implements Runnable {
 
+		private static final int BUFFER_SIZE = 4096;
+
 		private static final Array sPool = Array.obtain();
+
+		private int mTmpN;
+		private int mTmpId;
 
 		private GameTissularity mTissularity;
 		private int mX;
@@ -241,28 +245,139 @@ public final class GameTissularity extends Tissularity {
 			recyclePure(pObj);
 		}
 
+		private int read(RandomAccessFile pFile, byte[] pBuffer) {
+			if (mTmpId == mTmpN) {
+				try {
+					mTmpN = pFile.read(pBuffer, 0, BUFFER_SIZE);
+					if (mTmpN == -1)
+						return -1;
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				mTmpId = 0;
+			}
+			return pBuffer[mTmpId++] + 128;
+		}
+
+		private void write(RandomAccessFile pFile, byte[] pBuffer, int pVal) {
+			if (mTmpId == BUFFER_SIZE) {
+				try {
+					pFile.write(pBuffer, 0, BUFFER_SIZE);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				mTmpId = 0;
+			}
+			pBuffer[mTmpId++] = (byte) (pVal - 128);
+		}
+
+		private void write(RandomAccessFile pFile, byte[] pBuffer) {
+			try {
+				pFile.write(pBuffer, 0, mTmpId);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		private int readInt(RandomAccessFile pFile, byte[] pBuffer) {
+			return read(pFile, pBuffer) | (read(pFile, pBuffer) << 8)
+					| (read(pFile, pBuffer) << 16) | (read(pFile, pBuffer) << 24);
+		}
+
+		private float readFloat(RandomAccessFile pFile, byte[] pBuffer) {
+			return Float.intBitsToFloat(readInt(pFile, pBuffer));
+		}
+
+		private void writeInt(RandomAccessFile pFile, byte[] pBuffer, int pVal) {
+			write(pFile, pBuffer, pVal & 255);
+			write(pFile, pBuffer, (pVal >>> 8) & 255);
+			write(pFile, pBuffer, (pVal >>> 16) & 255);
+			write(pFile, pBuffer, pVal >>> 24);
+		}
+
+		private void writeFloat(RandomAccessFile pFile, byte[] pBuffer, float pVal) {
+			writeInt(pFile, pBuffer, Float.floatToRawIntBits(pVal));
+		}
+
 		private void load() {
 
-			long seed = 0;
-			Cellularity chunk = Cellularity.obtain(BodyType.StaticBody, 0, 0, 0);
-			int offsetX = mX << Settings.CHUNK_SIZE_LOG;
-			int offsetY = mY << Settings.CHUNK_SIZE_LOG;
-			for (int z = Settings.CHUNK_MIN_DEPTH; z <= Settings.CHUNK_MAX_DEPTH; ++z)
-				for (int y = Settings.CHUNK_BOTTOM; y <= Settings.CHUNK_TOP; ++y)
-					for (int x = Settings.CHUNK_LEFT; x <= Settings.CHUNK_RIGHT; ++x) {
-						chunk.setCell(x, y, z, genWorld(seed, offsetX + x, offsetY + y, z));
-						chunk.setLight(x, y, z, 0, 0, 0);
-						chunk.setAI(x, y, z, 0, 0, 0);
+			ChunkCellularity chunk = ChunkCellularity.obtain();
+
+			File file = Gdx.files.local("chunk" + mX + "_" + mY).file();
+			try {
+				RandomAccessFile randomAccessFile = new RandomAccessFile(file, "r");
+				try {
+					byte[] buffer = BinaryByteArrayPool.obtain(BUFFER_SIZE);
+					mTmpN = 0;
+					mTmpId = 0;
+					for (int z = Settings.CHUNK_MIN_DEPTH; z <= Settings.CHUNK_MAX_DEPTH; ++z)
+						for (int y = Settings.CHUNK_BOTTOM; y <= Settings.CHUNK_TOP; ++y)
+							for (int x = Settings.CHUNK_LEFT; x <= Settings.CHUNK_RIGHT; ++x) {
+								int cell = readInt(randomAccessFile, buffer);
+								chunk.setCell(x, y, z, cell, null);
+								chunk.setLight(x, y, z, 0, 0, 0);
+								chunk.setAI(x, y, z, 0);
+							}
+					int dynamicsN = readInt(randomAccessFile, buffer);
+					for (int i = 0; i < dynamicsN; ++i) {
+						float posX = readFloat(randomAccessFile, buffer);
+						float posY = readFloat(randomAccessFile, buffer);
+						float angle = readFloat(randomAccessFile, buffer);
+						float vx = readFloat(randomAccessFile, buffer);
+						float vy = readFloat(randomAccessFile, buffer);
+						float angularVelocity = readFloat(randomAccessFile, buffer);
+						DynamicCellularity cellularity =
+								DynamicCellularity.obtain(posX, posY, angle);
+						cellularity.getBody().setVelocity(vx, vy);
+						cellularity.getBody().setAngularVelocity(angularVelocity);
+						int num = readInt(randomAccessFile, buffer);
+						for (int j = 0; j < num; ++j) {
+							int x = read(randomAccessFile, buffer);
+							int y = read(randomAccessFile, buffer);
+							int z = read(randomAccessFile, buffer);
+							int cell = readInt(randomAccessFile, buffer);
+							cellularity.setCell(x, y, z, cell, null);
+						}
+						chunk.pushCellularity(cellularity);
 					}
+
+					BinaryByteArrayPool.recycle(buffer);
+					randomAccessFile.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			} catch (FileNotFoundException e) {
+				long seed = 0;
+				int offsetX = mX << Settings.CHUNK_SIZE_LOG;
+				int offsetY = mY << Settings.CHUNK_SIZE_LOG;
+				for (int z = Settings.CHUNK_MIN_DEPTH; z <= Settings.CHUNK_MAX_DEPTH; ++z)
+					for (int y = Settings.CHUNK_BOTTOM; y <= Settings.CHUNK_TOP; ++y)
+						for (int x = Settings.CHUNK_LEFT; x <= Settings.CHUNK_RIGHT; ++x) {
+							chunk.setCell(x, y, z, genWorld(seed, offsetX + x, offsetY + y, z),
+									null);
+							chunk.setLight(x, y, z, 0, 0, 0);
+							chunk.setAI(x, y, z, 0);
+						}
+				for (int i = 0; i < 16; ++i) {
+					chunk.precalcCells(chunk.cellUpdate());
+					chunk.updateCells();
+				}
+			}
+
 			for (int i = 0; i < 16; ++i) {
-				chunk.precalc(1);
-				chunk.update();
+				chunk.precalcLight(chunk.lightUpdate());
+				chunk.updateLight();
+			}
+			for (int i = 0; i < 16; ++i) {
+				chunk.precalcAI(chunk.aiUpdate());
+				chunk.updateAI();
 			}
 			chunk.drop();
 			chunk.postDrop();
-			chunk.refresh();
-			chunk.precalc(1);
-
+			chunk.refreshCells();
+			chunk.precalcCells(chunk.cellUpdate());
+			chunk.precalcLight(chunk.lightUpdate());
+			chunk.precalcAI(chunk.aiUpdate());
 			mChunkHolder.setChunk(chunk);
 
 			synchronized (mTissularity.getOrganularity()) {
@@ -271,9 +386,67 @@ public final class GameTissularity extends Tissularity {
 		}
 
 		private void unload() {
-			Cellularity chunk = mChunkHolder.getChunk();
+			ChunkCellularity chunk = mChunkHolder.getChunk();
 			mChunkHolder.setChunk(null);
-			Cellularity.recycle(chunk);
+
+			File file = Gdx.files.local("chunk" + mX + "_" + mY).file();
+			try {
+				RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
+				try {
+					randomAccessFile.setLength(0);
+					byte[] buffer = BinaryByteArrayPool.obtain(BUFFER_SIZE);
+					mTmpN = 0;
+					mTmpId = 0;
+					for (int z = Settings.CHUNK_MIN_DEPTH; z <= Settings.CHUNK_MAX_DEPTH; ++z)
+						for (int y = Settings.CHUNK_BOTTOM; y <= Settings.CHUNK_TOP; ++y)
+							for (int x = Settings.CHUNK_LEFT; x <= Settings.CHUNK_RIGHT; ++x) {
+								int cell = chunk.getCell(x, y, z);
+								writeInt(randomAccessFile, buffer, cell);
+							}
+
+					int dynamicsN = 0;
+					LinkedHashTable[] dynamics = chunk.getDynamics();
+					for (int i = 0; i < Settings.CHUNK_REGIONS_SQUARE; ++i)
+						dynamicsN += dynamics[i].size();
+					writeInt(randomAccessFile, buffer, dynamicsN);
+					for (int i = 0; i < Settings.CHUNK_REGIONS_SQUARE; ++i) {
+						for (List.Node k = dynamics[i].begin(); k != dynamics[i].end(); k =
+								dynamics[i].next(k)) {
+							DynamicCellularity cellularity =
+									(DynamicCellularity) dynamics[i].val(k);
+							MetaBody body = cellularity.getBody();
+							writeFloat(randomAccessFile, buffer, body.getPositionX());
+							writeFloat(randomAccessFile, buffer, body.getPositionY());
+							writeFloat(randomAccessFile, buffer, body.getAngle());
+							writeFloat(randomAccessFile, buffer, body.getVelocityX());
+							writeFloat(randomAccessFile, buffer, body.getVelocityY());
+							writeFloat(randomAccessFile, buffer, body.getAngularVelocity());
+							int num = cellularity.size();
+							writeInt(randomAccessFile, buffer, num);
+							for (int j = 0; j < num; ++j) {
+								int x = cellularity.getCellKeyX(j);
+								int y = cellularity.getCellKeyY(j);
+								int z = cellularity.getCellKeyZ(j);
+								write(randomAccessFile, buffer, x);
+								write(randomAccessFile, buffer, y);
+								write(randomAccessFile, buffer, z);
+								writeInt(randomAccessFile, buffer, cellularity.getCell(x, y, z));
+							}
+						}
+					}
+
+					write(randomAccessFile, buffer);
+
+					BinaryByteArrayPool.recycle(buffer);
+					randomAccessFile.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
+
+			ChunkCellularity.recycle(chunk);
 			synchronized (mTissularity.getOrganularity()) {
 				mChunkHolder.finish();
 			}
@@ -285,12 +458,9 @@ public final class GameTissularity extends Tissularity {
 					0, 2.0, 0.5, 4) + val);
 		}
 
-		private Cell genWorld(long pSeed, int pX, int pY, int pZ) {
+		private strictfp int genWorld(long pSeed, int pX, int pY, int pZ) {
 
-			final int AIR_CELL_ID = 0;
-			final int GROUND_CELL_ID = 1;
-			final int ROCK_CELL_ID = 2;
-			int ans = AIR_CELL_ID;
+			int ans = Cells.CELL_TYPE_AIR;
 
 			int height =
 					(int) (1024 * NoiseMath.perlinOctaveNoise(NoiseMath.combine(pSeed, 0),
@@ -310,9 +480,9 @@ public final class GameTissularity extends Tissularity {
 
 			if (density + pressure >= 1.0) {
 				if (density + pressure / 2 <= 0.85)
-					ans = GROUND_CELL_ID;
+					ans = Cells.CELL_TYPE_GROUND;
 				else
-					ans = ROCK_CELL_ID;
+					ans = Cells.CELL_TYPE_ROCK;
 			}
 
 			// Caves
@@ -322,22 +492,13 @@ public final class GameTissularity extends Tissularity {
 							NoiseMath.perlinOctaveNoise(NoiseMath.combine(pSeed, i + 3),
 									pX / 512.0, pY / 256.0, pZ / 64.0, 2.0, 0.5, 6);
 					if (0.5 - 0.005 < val && val < 0.5 + 0.005) {
-						ans = AIR_CELL_ID;
+						ans = Cells.CELL_TYPE_AIR;
 						break;
 					}
 				}
 			}
 
-			switch (ans) {
-			case AIR_CELL_ID:
-				return AirCell.obtain();
-			case GROUND_CELL_ID:
-				return GroundCell.obtain();
-			case ROCK_CELL_ID:
-				return RockCell.obtain();
-			default:
-				return null;
-			}
+			return ans;
 		}
 	}
 
