@@ -6,12 +6,11 @@ import com.badlogic.gdx.physics.box2d.Fixture;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.Manifold;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
-import com.badlogic.gdx.physics.box2d.WorldManifold;
-import com.badlogic.gdx.physics.box2d.BodyDef.BodyType;
 import com.gaskarov.teerain.core.cellularity.Cellularity;
 import com.gaskarov.teerain.core.util.Collidable;
 import com.gaskarov.teerain.core.util.MetaBody;
-import com.gaskarov.teerain.core.util.Settings;
+import com.gaskarov.teerain.resource.CellsAction;
+import com.gaskarov.teerain.resource.Settings;
 import com.gaskarov.util.constants.ArrayConstants;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
@@ -31,14 +30,16 @@ public class PhysicsWall implements Collidable {
 	// Constants
 	// ===========================================================
 
-	private static final float FLOAT_EPS = 1e-6f;
-
 	// ===========================================================
 	// Fields
 	// ===========================================================
 
 	private static final Array sPool = Array.obtain();
 
+	private int mX;
+	private int mY;
+	private int mZ;
+	private Cellularity mCellularity;
 	private FixtureDef mMain;
 	private FixtureDef mHorizontal;
 	private FixtureDef mVertical;
@@ -69,44 +70,57 @@ public class PhysicsWall implements Collidable {
 	// ===========================================================
 
 	@Override
-	public void beginContact(Contact pContact, Fixture pFixture, Fixture pThisFixture, boolean pSwap) {
+	public int getX() {
+		return mX;
 	}
 
 	@Override
-	public void endContact(Contact pContact, Fixture pFixture, Fixture pThisFixture, boolean pSwap) {
+	public int getY() {
+		return mY;
 	}
 
 	@Override
-	public void preSolve(Contact pContact, Manifold pOldManifold, Fixture pFixture,
-			Fixture pThisFixture, boolean pSwap) {
-		if (pThisFixture.getBody().getType() == BodyType.StaticBody
-				&& pFixture.getBody().getType() == BodyType.DynamicBody && mNear != 31) {
-			WorldManifold manifold = pContact.getWorldManifold();
-			float[] separations = manifold.getSeparations();
-			for (int i = manifold.getNumberOfContactPoints() - 1; i >= 0; --i)
-				if (separations[i] < -0.01f)
-					return;
-			float normalX = manifold.getNormal().x;
-			float normalY = manifold.getNormal().y;
-			if (pSwap) {
-				normalX *= -1;
-				normalY *= -1;
-			}
-			if ((mNear & 1) != 0 && normalX >= FLOAT_EPS) {
-				pContact.setEnabled(false);
-			} else if ((mNear & 2) != 0 && normalY >= FLOAT_EPS) {
-				pContact.setEnabled(false);
-			} else if ((mNear & 4) != 0 && normalX <= -FLOAT_EPS) {
-				pContact.setEnabled(false);
-			} else if ((mNear & 8) != 0 && normalY <= -FLOAT_EPS) {
-				pContact.setEnabled(false);
-			}
-		}
+	public int getZ() {
+		return mZ;
 	}
 
 	@Override
-	public void postSolve(Contact pContact, ContactImpulse pContactImpulse, Fixture pFixture,
-			Fixture pThisFixture, boolean pSwap) {
+	public Cellularity getCellularity() {
+		return mCellularity;
+	}
+
+	@Override
+	public void beginContact(Contact pContact, Fixture pFixture,
+			Fixture pThisFixture, boolean pSwap, Collidable pData) {
+		CellsAction.beginContact(mCellularity,
+				mCellularity.getCell(mX, mY, mZ), mX, mY, mZ, pContact,
+				pFixture, pThisFixture, pSwap, pData, this);
+	}
+
+	@Override
+	public void endContact(Contact pContact, Fixture pFixture,
+			Fixture pThisFixture, boolean pSwap, Collidable pData) {
+		CellsAction.endContact(mCellularity, mCellularity.getCell(mX, mY, mZ),
+				mX, mY, mZ, pContact, pFixture, pThisFixture, pSwap, pData,
+				this);
+	}
+
+	@Override
+	public void preSolve(Contact pContact, Manifold pOldManifold,
+			Fixture pFixture, Fixture pThisFixture, boolean pSwap,
+			Collidable pData) {
+		CellsAction.preSolve(mCellularity, mCellularity.getCell(mX, mY, mZ),
+				mX, mY, mZ, pContact, pOldManifold, pFixture, pThisFixture,
+				pSwap, pData, this);
+	}
+
+	@Override
+	public void postSolve(Contact pContact, ContactImpulse pContactImpulse,
+			Fixture pFixture, Fixture pThisFixture, boolean pSwap,
+			Collidable pData) {
+		CellsAction.postSolve(mCellularity, mCellularity.getCell(mX, mY, mZ),
+				mX, mY, mZ, pContact, pContactImpulse, pFixture, pThisFixture,
+				pSwap, pData, this);
 	}
 
 	// ===========================================================
@@ -116,7 +130,8 @@ public class PhysicsWall implements Collidable {
 	private static PhysicsWall obtainPure() {
 		if (GlobalConstants.POOL)
 			synchronized (PhysicsWall.class) {
-				return sPool.size() == 0 ? new PhysicsWall() : (PhysicsWall) sPool.pop();
+				return sPool.size() == 0 ? new PhysicsWall()
+						: (PhysicsWall) sPool.pop();
 			}
 		return new PhysicsWall();
 	}
@@ -128,8 +143,13 @@ public class PhysicsWall implements Collidable {
 			}
 	}
 
-	public static PhysicsWall obtain() {
+	public static PhysicsWall obtain(Cellularity pCellularity, int pX, int pY,
+			int pZ) {
 		PhysicsWall obj = obtainPure();
+		obj.mX = pX;
+		obj.mY = pY;
+		obj.mZ = pZ;
+		obj.mCellularity = pCellularity;
 		obj.mMain = null;
 		obj.mHorizontal = null;
 		obj.mVertical = null;
@@ -138,6 +158,7 @@ public class PhysicsWall implements Collidable {
 	}
 
 	public static void recycle(PhysicsWall pObj) {
+		pObj.mCellularity = null;
 		recyclePure(pObj);
 	}
 
@@ -148,9 +169,9 @@ public class PhysicsWall implements Collidable {
 	public static byte near(Cellularity pCellularity, int pX, int pY, int pZ) {
 		byte flags = 0;
 		for (int i = 0; i < ArrayConstants.DIRECTIONS_2D_X.length; ++i) {
-			boolean shellable =
-					pCellularity.isShellable(pX + ArrayConstants.DIRECTIONS_2D_X[i], pY
-							+ ArrayConstants.DIRECTIONS_2D_Y[i], pZ);
+			boolean shellable = pCellularity.isShellable(pX
+					+ ArrayConstants.DIRECTIONS_2D_X[i], pY
+					+ ArrayConstants.DIRECTIONS_2D_Y[i], pZ);
 			flags |= (shellable ? 1 << i : 0);
 		}
 		if (flags == 15)
@@ -158,9 +179,10 @@ public class PhysicsWall implements Collidable {
 		return flags;
 	}
 
-	public void createPhysics(Cellularity pCellularity, int pX, int pY, int pZ, float pBorderSize,
-			float pCornerValue, float pCornerSize, float pDensity, float pFriction,
-			float pRestitution, boolean pSolid, boolean pSquare) {
+	public void createPhysics(Cellularity pCellularity, int pX, int pY, int pZ,
+			float pBorderSize, float pCornerValue, float pCornerSize,
+			float pDensity, float pFriction, float pRestitution,
+			boolean pSolid, boolean pSquare) {
 		boolean isChunk = pCellularity.isChunk();
 		float offsetX = pX - (isChunk ? 0 : Settings.MAX_DROP_HSIZE);
 		float offsetY = pY - (isChunk ? 0 : Settings.MAX_DROP_HSIZE);
@@ -178,12 +200,10 @@ public class PhysicsWall implements Collidable {
 		vert[5] = minY;
 		vert[6] = maxX;
 		vert[7] = minY;
-		mMain =
-				FixtureDefPool
-						.obtain(pDensity, pFriction, false, pRestitution, (short) 0x0000,
-								pSquare && pSolid ? (short) (pZ - Settings.CHUNK_MIN_DEPTH + 1)
-										: (short) 0, (short) -1, PolygonShapePool
-										.obtain(vert, 0, 8));
+		mMain = FixtureDefPool.obtain(pDensity, pFriction, false, pRestitution,
+				(short) 0x0000, pSquare && pSolid ? (short) (pZ
+						- Settings.CHUNK_MIN_DEPTH + 1) : (short) 0,
+				(short) -1, PolygonShapePool.obtain(vert, 0, 8));
 		body.createFixture(mMain, this);
 
 		if (!pSquare && pSolid) {
@@ -205,10 +225,10 @@ public class PhysicsWall implements Collidable {
 			vert[13] = minY;
 			vert[14] = maxX - pCornerValue;
 			vert[15] = minY + pCornerValue;
-			mHorizontal =
-					FixtureDefPool.obtain(0.0f, pFriction, false, pRestitution, (short) 0x0000,
-							(short) (pZ - Settings.CHUNK_MIN_DEPTH + 1), (short) -1,
-							PolygonShapePool.obtain(vert, 0, 16));
+			mHorizontal = FixtureDefPool.obtain(0.0f, pFriction, false,
+					pRestitution, (short) 0x0000, (short) (pZ
+							- Settings.CHUNK_MIN_DEPTH + 1), (short) -1,
+					PolygonShapePool.obtain(vert, 0, 16));
 			body.createFixture(mHorizontal, this);
 
 			// Vertical
@@ -228,10 +248,10 @@ public class PhysicsWall implements Collidable {
 			vert[13] = minY + pCornerValue;
 			vert[14] = maxX;
 			vert[15] = minY + pCornerSize;
-			mVertical =
-					FixtureDefPool.obtain(0.0f, pFriction, false, pRestitution, (short) 0x0000,
-							(short) (pZ - Settings.CHUNK_MIN_DEPTH + 1), (short) -1,
-							PolygonShapePool.obtain(vert, 0, 16));
+			mVertical = FixtureDefPool.obtain(0.0f, pFriction, false,
+					pRestitution, (short) 0x0000, (short) (pZ
+							- Settings.CHUNK_MIN_DEPTH + 1), (short) -1,
+					PolygonShapePool.obtain(vert, 0, 16));
 			body.createFixture(mVertical, this);
 		}
 		BinaryFloatArrayPool.recycle(vert);

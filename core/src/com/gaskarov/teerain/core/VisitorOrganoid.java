@@ -2,7 +2,7 @@ package com.gaskarov.teerain.core;
 
 import com.badlogic.gdx.math.Vector2;
 import com.gaskarov.teerain.core.cellularity.Cellularity;
-import com.gaskarov.teerain.core.util.Settings;
+import com.gaskarov.teerain.resource.Settings;
 import com.gaskarov.util.common.MathUtils;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
@@ -54,7 +54,8 @@ public class VisitorOrganoid {
 	private static VisitorOrganoid obtainPure() {
 		if (GlobalConstants.POOL)
 			synchronized (VisitorOrganoid.class) {
-				return sPool.size() == 0 ? new VisitorOrganoid() : (VisitorOrganoid) sPool.pop();
+				return sPool.size() == 0 ? new VisitorOrganoid()
+						: (VisitorOrganoid) sPool.pop();
 			}
 		return new VisitorOrganoid();
 	}
@@ -95,12 +96,14 @@ public class VisitorOrganoid {
 		}
 	}
 
-	public void tissularedAttach(Cellularity pCellularity, int pX, int pY, int pZ) {
+	public void tissularedAttach(Cellularity pCellularity, int pX, int pY,
+			int pZ) {
 		if (mIsEnabled)
 			pushVisitor(pCellularity, pX, pY, pZ);
 	}
 
-	public void tissularedDetach(Cellularity pCellularity, int pX, int pY, int pZ) {
+	public void tissularedDetach(Cellularity pCellularity, int pX, int pY,
+			int pZ) {
 		if (mIsEnabled)
 			removeVisitor(pCellularity.getTissularity());
 	}
@@ -110,7 +113,12 @@ public class VisitorOrganoid {
 			pushVisitor(pCellularity, pX, pY, pZ);
 	}
 
-	public void setIsEnabled(Cellularity pCellularity, int pX, int pY, int pZ, boolean pIsEnabled) {
+	public boolean getIsEnabled() {
+		return mIsEnabled;
+	}
+
+	public void setIsEnabled(Cellularity pCellularity, int pX, int pY, int pZ,
+			boolean pIsEnabled) {
 		if (mIsEnabled == pIsEnabled)
 			return;
 		mIsEnabled = pIsEnabled;
@@ -137,16 +145,19 @@ public class VisitorOrganoid {
 		float x = p.x;
 		float y = p.y;
 
-		int lx = pCellularity.localToGlobalX(MathUtils.floor(x) - (Settings.VISITOR_WIDTH + 1) / 2);
-		int ly =
-				pCellularity.localToGlobalY(MathUtils.floor(y) - (Settings.VISITOR_HEIGHT + 1) / 2);
-		int rx = pCellularity.localToGlobalX(MathUtils.ceil(x) + (Settings.VISITOR_WIDTH - 1) / 2);
-		int ry = pCellularity.localToGlobalY(MathUtils.ceil(y) + (Settings.VISITOR_HEIGHT - 1) / 2);
+		int lx = pCellularity.localToGlobalX(MathUtils.floor(x)
+				- (Settings.VISITOR_WIDTH + 1) / 2);
+		int ly = pCellularity.localToGlobalY(MathUtils.floor(y)
+				- (Settings.VISITOR_HEIGHT + 1) / 2);
+		int rx = pCellularity.localToGlobalX(MathUtils.ceil(x)
+				+ (Settings.VISITOR_WIDTH - 1) / 2);
+		int ry = pCellularity.localToGlobalY(MathUtils.ceil(y)
+				+ (Settings.VISITOR_HEIGHT - 1) / 2);
 		int width = rx - lx + 1;
 		int height = ry - ly + 1;
 		if (mIsVisitor)
-			tissularity.moveVisitor(mVisitorX, mVisitorY, mVisitorWidth, mVisitorHeight, lx, ly,
-					width, height);
+			tissularity.moveVisitor(mVisitorX, mVisitorY, mVisitorWidth,
+					mVisitorHeight, lx, ly, width, height);
 		else {
 			tissularity.addVisitor(lx, ly, width, height);
 			tissularity.pushVisitor(this, pCellularity, pX, pY, pZ);
@@ -161,7 +172,8 @@ public class VisitorOrganoid {
 	private void removeVisitor(Tissularity pTissularity) {
 		if (mIsVisitor) {
 			pTissularity.removeVisitor(this);
-			pTissularity.removeVisitor(mVisitorX, mVisitorY, mVisitorWidth, mVisitorHeight);
+			pTissularity.removeVisitor(mVisitorX, mVisitorY, mVisitorWidth,
+					mVisitorHeight);
 			mIsVisitor = false;
 		}
 	}

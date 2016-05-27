@@ -7,13 +7,14 @@ import static com.gaskarov.util.constants.ArrayConstants.MOVE_AROUND_Y;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.gaskarov.teerain.core.Cells;
 import com.gaskarov.teerain.core.Organularity;
+import com.gaskarov.teerain.core.Player;
 import com.gaskarov.teerain.core.Tissularity;
 import com.gaskarov.teerain.core.cellularity.Cellularity;
 import com.gaskarov.teerain.core.util.MetaBody;
-import com.gaskarov.teerain.core.util.Settings;
-import com.gaskarov.teerain.game.game.ControlOrganoid;
+import com.gaskarov.teerain.resource.CellsAction;
+import com.gaskarov.teerain.resource.ControlOrganoid;
+import com.gaskarov.teerain.resource.Settings;
 import com.gaskarov.util.common.IntVector1;
 import com.gaskarov.util.common.KeyValuePair;
 import com.gaskarov.util.common.MathUtils;
@@ -44,8 +45,8 @@ public final class Controller {
 	private final boolean[] mTmpAISolid = new boolean[MOVE_AROUND_SIZE];
 	private final int[] mTmpAIAround = new int[MOVE_AROUND_SIZE];
 
-	private Player mPlayer;
-	private Player mBot;
+	private int mControlTeleX;
+	private int mControlTeleY;
 
 	private int mControlMove;
 	private boolean mJump;
@@ -75,7 +76,8 @@ public final class Controller {
 	private static Controller obtainPure() {
 		if (GlobalConstants.POOL)
 			synchronized (Controller.class) {
-				return sPool.size() == 0 ? new Controller() : (Controller) sPool.pop();
+				return sPool.size() == 0 ? new Controller()
+						: (Controller) sPool.pop();
 			}
 		return new Controller();
 	}
@@ -87,11 +89,10 @@ public final class Controller {
 			}
 	}
 
-	public static Controller obtain(Player pPlayer) {
+	public static Controller obtain() {
 		Controller obj = obtainPure();
-		obj.mPlayer = pPlayer;
-		obj.mBot = Player.obtain();
-		obj.mBot.setItem(1, Cells.CELL_TYPE_HAMMER, null);
+		obj.mControlTeleX = 0;
+		obj.mControlTeleY = 0;
 		obj.mControlMove = 0;
 		obj.mJump = false;
 		for (int i = 0; i < obj.mPointersControlMove.length; ++i)
@@ -102,15 +103,14 @@ public final class Controller {
 	}
 
 	public static void recycle(Controller pObj) {
-		Player.recycle(pObj.mBot);
-		pObj.mBot = null;
 		recyclePure(pObj);
 	}
 
 	public void tick(Tissularity pTissularity) {
 		LinkedHashTable controllables = pTissularity.getControllables();
 		{
-			KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(0));
+			KeyValuePair pair = (KeyValuePair) controllables.get(mTmp
+					.set(Settings.PLAYER_ID));
 			if (pair != null) {
 				LinkedHashTable tmp = (LinkedHashTable) pair.mB;
 				for (List.Node i = tmp.begin(); i != tmp.end(); i = tmp.next(i))
@@ -118,7 +118,8 @@ public final class Controller {
 			}
 		}
 		{
-			KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(1));
+			KeyValuePair pair = (KeyValuePair) controllables.get(mTmp
+					.set(Settings.ZOMBIE_ID));
 			if (pair != null) {
 				LinkedHashTable tmp = (LinkedHashTable) pair.mB;
 				for (List.Node i = tmp.begin(); i != tmp.end(); i = tmp.next(i))
@@ -127,7 +128,8 @@ public final class Controller {
 		}
 	}
 
-	private void control(Tissularity pTissularity, ControlOrganoid pControlOrganoid) {
+	private void control(Tissularity pTissularity,
+			ControlOrganoid pControlOrganoid) {
 		pControlOrganoid.setControlMove(move());
 		pControlOrganoid.setJump(jump());
 		Cellularity cellularity = pControlOrganoid.getCellularity();
@@ -135,27 +137,29 @@ public final class Controller {
 		int y = pControlOrganoid.getY();
 		int z = pControlOrganoid.getZ();
 		MetaBody body = cellularity.getBody();
+		if (mControlTeleX != 0 || mControlTeleY != 0)
+			body.setPosition(
+					body.getPositionX() + MathUtils.sign(mControlTeleX) * 4,
+					body.getPositionY() + MathUtils.sign(mControlTeleY) * 4);
 		float c = (float) Math.cos(body.getAngle());
 		float s = (float) Math.sin(body.getAngle());
 		float offset = cellularity.isChunk() ? 0 : Settings.MAX_DROP_HSIZE;
 		Tissularity tissularity = cellularity.getTissularity();
-		float nextCameraX =
-				body.getOffsetX() + body.getPositionX() + (x - offset + 0.5f) * c
-						- (y - offset + 0.5f) * s;
-		float nextCameraY =
-				body.getOffsetY() + body.getPositionY() + (x - offset + 0.5f) * s
-						+ (y - offset + 0.5f) * c;
+		float nextCameraX = body.getOffsetX() + body.getPositionX()
+				+ (x - offset + 0.5f) * c - (y - offset + 0.5f) * s;
+		float nextCameraY = body.getOffsetY() + body.getPositionY()
+				+ (x - offset + 0.5f) * s + (y - offset + 0.5f) * c;
 		tissularity.setCameraX(nextCameraX);
 		tissularity.setCameraY(nextCameraY);
-		mPlayer.control(cellularity, x, y, z, pControlOrganoid);
 
 		int posX = pTissularity.getOffsetX() + MathUtils.floor(nextCameraX);
-		int posY = pTissularity.getOffsetX() + MathUtils.floor(nextCameraY);
+		int posY = pTissularity.getOffsetY() + MathUtils.floor(nextCameraY);
 		int ai = pTissularity.getAI(posX, posY, z);
 		pTissularity.setAI(posX, posY, z, 255 | (ai & ~255));
 	}
 
-	private void controlBot(Tissularity pTissularity, ControlOrganoid pControlOrganoid) {
+	private void controlBot(Tissularity pTissularity,
+			ControlOrganoid pControlOrganoid) {
 		Cellularity cellularity = pControlOrganoid.getCellularity();
 		int x = pControlOrganoid.getX();
 		int y = pControlOrganoid.getY();
@@ -165,14 +169,17 @@ public final class Controller {
 		float s = (float) Math.sin(body.getAngle());
 		float offset = cellularity.isChunk() ? 0 : Settings.MAX_DROP_HSIZE;
 		Tissularity tissularity = cellularity.getTissularity();
-		float posX =
-				body.getOffsetX() + body.getPositionX() + (x - offset + 0.5f) * c
-						- (y - offset + 0.5f) * s;
-		float posY =
-				body.getOffsetY() + body.getPositionY() + (x - offset + 0.5f) * s
-						+ (y - offset + 0.5f) * c;
-		int coordX = tissularity.getOffsetX() + MathUtils.floor(posX);
-		int coordY = tissularity.getOffsetY() + MathUtils.floor(posY);
+		if (tissularity == null) {
+			Gdx.app.log("TAG", "LOL");
+		}
+		float posX = body.getOffsetX() + body.getPositionX()
+				+ (x - offset + 0.5f) * c - (y - offset + 0.5f) * s;
+		float posY = body.getOffsetY() + body.getPositionY()
+				+ (x - offset + 0.5f) * s + (y - offset + 0.5f) * c;
+		int floorX = MathUtils.floor(posX);
+		int floorY = MathUtils.floor(posY);
+		int coordX = tissularity.getOffsetX() + floorX;
+		int coordY = tissularity.getOffsetY() + floorY;
 
 		for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
 			final int tmpX = coordX + MOVE_AROUND_X[j];
@@ -189,7 +196,8 @@ public final class Controller {
 		int maxY = 0;
 		int maxA;
 		int maxB;
-		boolean flag = !pControlOrganoid.isGrounded() && body.getVelocityY() < 0f;
+		boolean flag = !pControlOrganoid.isGrounded()
+				&& body.getVelocityY() < 0f;
 		if (flag) {
 			maxA = tmpAIVertical;
 			maxB = tmpAIField;
@@ -198,12 +206,13 @@ public final class Controller {
 			maxB = tmpAIVertical;
 		}
 		for (int j = 0; j < MOVE_AROUND_SIZE; ++j) {
-			if ((j & 1) == 0 || !mTmpAISolid[j - 1 & 7] && !mTmpAISolid[j + 1 & 7]) {
+			if ((j & 1) == 0 || !mTmpAISolid[j - 1 & 7]
+					&& !mTmpAISolid[j + 1 & 7]) {
 				int vx = MOVE_AROUND_X[j];
 				int vy = MOVE_AROUND_Y[j];
 				if (vy == 1 && body.getVelocityY() < 0)
 					continue;
-				if (vy == 0 && body.getVelocityY() < 0 && posY - coordY < 0.5f)
+				if (vy == 0 && body.getVelocityY() < 0 && posY - floorY < 0.5f)
 					continue;
 				int ai = mTmpAIAround[j];
 				int aiField = ai & 255;
@@ -231,11 +240,11 @@ public final class Controller {
 		else if (maxX == 1)
 			pControlOrganoid.setControlMove(1);
 		else {
-			float dx = 0.5f - (posX - coordX);
+			float dx = 0.5f - (posX - floorX);
 			float vx = body.getVelocityX();
 			float accel = -0.5f * vx * vx / dx;
-			float frictionX =
-					posX - coordX + -0.5f * vx * vx / Settings.AIR_FRICTION * (vx > 0 ? -1 : 1);
+			float frictionX = posX - floorX + -0.5f * vx * vx
+					/ Settings.AIR_FRICTION * (vx > 0 ? -1 : 1);
 			if (0.48f < frictionX && frictionX < 0.52f)
 				pControlOrganoid.setControlMove(0);
 			else if (posX - coordX < 0.5f) {
@@ -251,17 +260,28 @@ public final class Controller {
 			}
 		}
 		if (maxY == 1
-				&& !(maxX == 1 && (posX - coordX < 0.75f || body.getVelocityX() < 0) || maxX == -1
-						&& (posX - coordX > 0.25f || body.getVelocityX() > 0)))
+				&& !(maxX == 1
+						&& (posX - floorX < 0.75f || body.getVelocityX() < 0) || maxX == -1
+						&& (posX - floorX > 0.25f || body.getVelocityX() > 0)))
 			pControlOrganoid.setJump(true);
 		else
 			pControlOrganoid.setJump(false);
-
-		mBot.control(cellularity, x, y, z, pControlOrganoid);
 	}
 
 	public void keyDown(Tissularity pTissularity, int pKeycode) {
 		switch (pKeycode) {
+		case Keys.LEFT:
+			--mControlTeleX;
+			break;
+		case Keys.RIGHT:
+			++mControlTeleX;
+			break;
+		case Keys.DOWN:
+			--mControlTeleY;
+			break;
+		case Keys.UP:
+			++mControlTeleY;
+			break;
 		case Keys.A:
 			leftDown();
 			break;
@@ -272,34 +292,58 @@ public final class Controller {
 			jumpDown();
 			break;
 		case Keys.NUM_1:
-			mPlayer.setUseItem(1);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID);
 			break;
 		case Keys.NUM_2:
-			mPlayer.setUseItem(2);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 1);
 			break;
 		case Keys.NUM_3:
-			mPlayer.setUseItem(3);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 2);
 			break;
 		case Keys.NUM_4:
-			mPlayer.setUseItem(4);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 3);
 			break;
 		case Keys.NUM_5:
-			mPlayer.setUseItem(5);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 4);
 			break;
 		case Keys.NUM_6:
-			mPlayer.setUseItem(6);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 5);
 			break;
 		case Keys.NUM_7:
-			mPlayer.setUseItem(7);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 6);
 			break;
 		case Keys.NUM_8:
-			mPlayer.setUseItem(8);
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 7);
+			break;
+		case Keys.NUM_9:
+			pTissularity.getPlayer(Settings.PLAYER_ID).setUseItem(
+					Player.USE_ITEM_MIN_ID + 8);
 			break;
 		}
 	}
 
 	public void keyUp(Tissularity pTissularity, int pKeycode) {
 		switch (pKeycode) {
+		case Keys.LEFT:
+			++mControlTeleX;
+			break;
+		case Keys.RIGHT:
+			--mControlTeleX;
+			break;
+		case Keys.DOWN:
+			++mControlTeleY;
+			break;
+		case Keys.UP:
+			--mControlTeleY;
+			break;
 		case Keys.A:
 			leftUp();
 			break;
@@ -315,10 +359,11 @@ public final class Controller {
 	public void keyTyped(Tissularity pTissularity, char pCharacter) {
 	}
 
-	public void touchDown(Tissularity pTissularity, int pScreenX, int pScreenY, int pPointer,
-			int pButton) {
+	public void touchDown(Tissularity pTissularity, int pScreenX, int pScreenY,
+			int pPointer, int pButton) {
 		LinkedHashTable controllables = pTissularity.getControllables();
-		KeyValuePair pair = (KeyValuePair) controllables.get(mTmp.set(0));
+		KeyValuePair pair = (KeyValuePair) controllables.get(mTmp
+				.set(Settings.PLAYER_ID));
 		if (pair != null) {
 			LinkedHashTable tmp = (LinkedHashTable) pair.mB;
 			for (List.Node i = tmp.begin(); i != tmp.end(); i = tmp.next(i)) {
@@ -329,16 +374,19 @@ public final class Controller {
 				int y = controlOrganoid.getY();
 				int z = controlOrganoid.getZ();
 				Cellularity cellularity = controlOrganoid.getCellularity();
-				cellularity.touchDown(mPlayer.getItem(mPlayer.getUseItem()), mPlayer
-						.getItemData(mPlayer.getUseItem()), cellularity.getCell(x, y, z), x, y, z,
-						clickX, clickY, controlOrganoid, mPlayer);
+				Player player = pTissularity.getPlayer(Settings.PLAYER_ID);
+				CellsAction.touchDown(cellularity,
+						player.getItem(player.getUseItem()),
+						player.getItemData(player.getUseItem()),
+						cellularity.getCell(x, y, z), x, y, z, clickX, clickY,
+						controlOrganoid, player, player.getUseItem());
 			}
 		}
 		// touchDragged(pTissularity, pScreenX, pScreenY, pPointer);
 	}
 
-	public void touchUp(Tissularity pTissularity, int pScreenX, int pScreenY, int pPointer,
-			int pButton) {
+	public void touchUp(Tissularity pTissularity, int pScreenX, int pScreenY,
+			int pPointer, int pButton) {
 		// if (mPointersControlMove[pPointer] == -1)
 		// leftUp();
 		// if (mPointersControlMove[pPointer] == 1)
@@ -349,7 +397,8 @@ public final class Controller {
 		// mPointersJump[pPointer] = false;
 	}
 
-	public void touchDragged(Tissularity pTissularity, int pScreenX, int pScreenY, int pPointer) {
+	public void touchDragged(Tissularity pTissularity, int pScreenX,
+			int pScreenY, int pPointer) {
 		// if (pScreenX < Gdx.graphics.getWidth() / 3) {
 		// if (mPointersControlMove[pPointer] == 1)
 		// rightUp();
@@ -388,24 +437,29 @@ public final class Controller {
 	}
 
 	public void scrolled(Tissularity pTissularity, int pAmount) {
-		int useItem = mPlayer.getUseItem() + pAmount;
-		mPlayer.setUseItem(MathUtils.mod(useItem - Player.USE_ITEM_MIN_ID, Player.USE_ITEM_MAX_ID
-				- Player.USE_ITEM_MIN_ID + 1)
+		Player player = pTissularity.getPlayer(Settings.PLAYER_ID);
+		int useItem = player.getUseItem() + pAmount;
+		player.setUseItem(MathUtils.mod(useItem - Player.USE_ITEM_MIN_ID,
+				Player.USE_ITEM_MAX_ID - Player.USE_ITEM_MIN_ID + 1)
 				+ Player.USE_ITEM_MIN_ID);
 	}
 
 	private static float screenToWorldX(Tissularity pTissularity, int pScreenX) {
 		Organularity organularity = pTissularity.getOrganularity();
 		OrthographicCamera camera = organularity.getCamera();
-		return pTissularity.getCameraX() + (pScreenX - Gdx.graphics.getWidth() * 0.5f)
-				/ Gdx.graphics.getWidth() / Settings.TILE_RENDER * camera.viewportWidth;
+		return pTissularity.getCameraX()
+				+ (pScreenX - Gdx.graphics.getWidth() * 0.5f)
+				/ Gdx.graphics.getWidth() / Settings.TILE_RENDER
+				* camera.viewportWidth;
 	}
 
 	private static float screenToWorldY(Tissularity pTissularity, int pScreenY) {
 		Organularity organularity = pTissularity.getOrganularity();
 		OrthographicCamera camera = organularity.getCamera();
-		return pTissularity.getCameraY() - (pScreenY - Gdx.graphics.getHeight() * 0.5f)
-				/ Gdx.graphics.getHeight() / Settings.TILE_RENDER * camera.viewportHeight;
+		return pTissularity.getCameraY()
+				- (pScreenY - Gdx.graphics.getHeight() * 0.5f)
+				/ Gdx.graphics.getHeight() / Settings.TILE_RENDER
+				* camera.viewportHeight;
 	}
 
 	private void leftDown() {

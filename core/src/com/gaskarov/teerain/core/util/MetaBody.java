@@ -149,14 +149,20 @@ public final class MetaBody {
 	public void freeze() {
 		if (!mFreezed) {
 			mFreezed = true;
-			mBody.setType(BodyType.StaticBody);
+			World world = mBody.getWorld();
+			clear();
+			mBodyDef.type = BodyType.StaticBody;
+			create(world);
+			mBodyDef.type = BodyType.DynamicBody;
 		}
 	}
 
 	public void unfreeze() {
 		if (mFreezed) {
 			mFreezed = false;
-			mBody.setType(BodyType.DynamicBody);
+			World world = mBody.getWorld();
+			clear();
+			create(world);
 			mBody.setLinearVelocity(mBodyDef.linearVelocity);
 			mBody.setAngularVelocity(mBodyDef.angularVelocity);
 		}
@@ -239,6 +245,14 @@ public final class MetaBody {
 		return mBodyDef.position.y;
 	}
 
+	public void setPosition(float pX, float pY) {
+		mBodyDef.position.x = pX;
+		mBodyDef.position.y = pY;
+		if (mBody != null)
+			mBody.setTransform(mBodyDef.position.x + mOffsetX, mBodyDef.position.y + mOffsetY,
+					mBody.getAngle());
+	}
+
 	public float getWorldPositionX() {
 		return mBody == null ? 0 : mBody.getPosition().x;
 	}
@@ -296,7 +310,21 @@ public final class MetaBody {
 	}
 
 	public void setFixed(boolean pIsFixed) {
-		mBody.setFixedRotation(pIsFixed);
+		mBodyDef.fixedRotation = pIsFixed;
+		if (mBody != null)
+			mBody.setFixedRotation(pIsFixed);
+	}
+
+	public void setActive(boolean pIsActive) {
+		mBodyDef.active = pIsActive;
+		if (mBody != null)
+			mBody.setActive(pIsActive);
+	}
+
+	public void setGravityScale(float pGravityScale) {
+		mBodyDef.gravityScale = pGravityScale;
+		if (mBody != null)
+			mBody.setGravityScale(pGravityScale);
 	}
 
 	public void createFixture(FixtureDef pFixtureDef, Object pUserData) {

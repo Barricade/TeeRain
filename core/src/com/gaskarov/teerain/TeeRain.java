@@ -5,9 +5,9 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.FPSLogger;
 import com.gaskarov.teerain.core.Organularity;
-import com.gaskarov.teerain.core.util.Resources;
 import com.gaskarov.teerain.debug.TimeMeasure;
 import com.gaskarov.teerain.game.MainTissularity;
+import com.gaskarov.teerain.resource.Resources;
 
 /**
  * Copyright (c) 2016 Ayrat Gaskarov <br>
@@ -71,13 +71,10 @@ public final class TeeRain extends ApplicationAdapter implements InputProcessor 
 	public void pause() {
 	}
 
-	long timetime;
-
 	@Override
 	public void render() {
-		if (System.currentTimeMillis() - timetime > 20)
-			Gdx.app.log("TAG", "BAD: " + (System.currentTimeMillis() - timetime));
-		timetime = System.currentTimeMillis();
+		if (Gdx.graphics.getRawDeltaTime() > 0.02f)
+			Gdx.app.log("TAG", "BAD: " + Gdx.graphics.getRawDeltaTime());
 		mFPSLogger.log();
 		TimeMeasure.start2();
 		TimeMeasure.sM13.start();

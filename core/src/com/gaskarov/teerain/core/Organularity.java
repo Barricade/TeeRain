@@ -13,9 +13,10 @@ import com.badlogic.gdx.physics.box2d.Manifold;
 import com.badlogic.gdx.physics.box2d.World;
 import com.gaskarov.teerain.core.util.Collidable;
 import com.gaskarov.teerain.core.util.OperationSolver;
-import com.gaskarov.teerain.core.util.Settings;
 import com.gaskarov.teerain.debug.TimeMeasure;
+import com.gaskarov.teerain.resource.Settings;
 import com.gaskarov.util.common.MathUtils;
+import com.gaskarov.util.common.NoiseMath;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
 import com.gaskarov.util.container.FloatArray;
@@ -80,6 +81,10 @@ public final class Organularity implements ContactListener {
 	private IntArray mInputBufferA;
 	private IntArray mInputBufferB;
 
+	private final Object mRandomMonitor = new Object();
+	private long mRandomSeed;
+	private long mRandomNumber;
+
 	// ===========================================================
 	// Constructors
 	// ===========================================================
@@ -138,69 +143,53 @@ public final class Organularity implements ContactListener {
 	@Override
 	public void beginContact(Contact pContact) {
 
-		Object dataA = pContact.getFixtureA().getUserData();
-		Object dataB = pContact.getFixtureB().getUserData();
+		Collidable dataA = (Collidable) pContact.getFixtureA().getUserData();
+		Collidable dataB = (Collidable) pContact.getFixtureB().getUserData();
 
-		if (dataA instanceof Collidable) {
-			((Collidable) dataA).beginContact(pContact, pContact.getFixtureB(), pContact
-					.getFixtureA(), false);
-		}
+		dataA.beginContact(pContact, pContact.getFixtureB(),
+				pContact.getFixtureA(), false, dataB);
 
-		if (dataB instanceof Collidable) {
-			((Collidable) dataB).beginContact(pContact, pContact.getFixtureA(), pContact
-					.getFixtureB(), true);
-		}
+		dataB.beginContact(pContact, pContact.getFixtureA(),
+				pContact.getFixtureB(), true, dataA);
 	}
 
 	@Override
 	public void endContact(Contact pContact) {
 
-		Object dataA = pContact.getFixtureA().getUserData();
-		Object dataB = pContact.getFixtureB().getUserData();
+		Collidable dataA = (Collidable) pContact.getFixtureA().getUserData();
+		Collidable dataB = (Collidable) pContact.getFixtureB().getUserData();
 
-		if (dataA instanceof Collidable) {
-			((Collidable) dataA).endContact(pContact, pContact.getFixtureB(), pContact
-					.getFixtureA(), false);
-		}
+		dataA.endContact(pContact, pContact.getFixtureB(),
+				pContact.getFixtureA(), false, dataB);
 
-		if (dataB instanceof Collidable) {
-			((Collidable) dataB).endContact(pContact, pContact.getFixtureA(), pContact
-					.getFixtureB(), true);
-		}
+		dataB.endContact(pContact, pContact.getFixtureA(),
+				pContact.getFixtureB(), true, dataA);
 	}
 
 	@Override
 	public void preSolve(Contact pContact, Manifold pOldManifold) {
 
-		Object dataA = pContact.getFixtureA().getUserData();
-		Object dataB = pContact.getFixtureB().getUserData();
+		Collidable dataA = (Collidable) pContact.getFixtureA().getUserData();
+		Collidable dataB = (Collidable) pContact.getFixtureB().getUserData();
 
-		if (dataA instanceof Collidable) {
-			((Collidable) dataA).preSolve(pContact, pOldManifold, pContact.getFixtureB(), pContact
-					.getFixtureA(), false);
-		}
+		dataA.preSolve(pContact, pOldManifold, pContact.getFixtureB(),
+				pContact.getFixtureA(), false, dataB);
 
-		if (dataB instanceof Collidable) {
-			((Collidable) dataB).preSolve(pContact, pOldManifold, pContact.getFixtureA(), pContact
-					.getFixtureB(), true);
-		}
+		dataB.preSolve(pContact, pOldManifold, pContact.getFixtureA(),
+				pContact.getFixtureB(), true, dataA);
 	}
 
 	@Override
 	public void postSolve(Contact pContact, ContactImpulse pContactImpulse) {
 
-		Object dataA = pContact.getFixtureA().getUserData();
-		Object dataB = pContact.getFixtureB().getUserData();
+		Collidable dataA = (Collidable) pContact.getFixtureA().getUserData();
+		Collidable dataB = (Collidable) pContact.getFixtureB().getUserData();
 
-		if (dataA instanceof Collidable) {
-			((Collidable) dataA).postSolve(pContact, pContactImpulse, pContact.getFixtureB(),
-					pContact.getFixtureA(), false);
-		}
+		dataA.postSolve(pContact, pContactImpulse, pContact.getFixtureB(),
+				pContact.getFixtureA(), false, dataB);
 
-		if (dataB instanceof Collidable) {
-			((Collidable) dataB).postSolve(pContact, pContactImpulse, pContact.getFixtureA(),
-					pContact.getFixtureB(), true);
-		}
+		dataB.postSolve(pContact, pContactImpulse, pContact.getFixtureA(),
+				pContact.getFixtureB(), true, dataA);
 	}
 
 	// ===========================================================
@@ -209,21 +198,33 @@ public final class Organularity implements ContactListener {
 
 	public static Organularity obtain() {
 		Organularity obj = new Organularity();
-		obj.mBox2DDebugRenderer = new Box2DDebugRenderer(true, true, false, false, false, true);
+		obj.mBox2DDebugRenderer = new Box2DDebugRenderer(true, true, false,
+				false, false, true);
 		obj.mBox2DDebugCameraMatrix = new Matrix4();
 		obj.mCamera = new OrthographicCamera();
-		String vertexShader = "attribute vec4 " + ShaderProgram.POSITION_ATTRIBUTE + ";\n" //
-				+ "attribute vec4 " + ShaderProgram.COLOR_ATTRIBUTE + ";\n" //
-				+ "attribute vec2 " + ShaderProgram.TEXCOORD_ATTRIBUTE + "0;\n" //
+		String vertexShader = "attribute vec4 "
+				+ ShaderProgram.POSITION_ATTRIBUTE
+				+ ";\n" //
+				+ "attribute vec4 "
+				+ ShaderProgram.COLOR_ATTRIBUTE
+				+ ";\n" //
+				+ "attribute vec2 "
+				+ ShaderProgram.TEXCOORD_ATTRIBUTE
+				+ "0;\n" //
 				+ "uniform mat4 u_projTrans;\n" //
 				+ "varying vec4 v_color;\n" //
 				+ "varying vec2 v_texCoords;\n" //
 				+ "\n" //
 				+ "void main() {\n" //
-				+ "  v_color = " + ShaderProgram.COLOR_ATTRIBUTE + ";\n" //
+				+ "  v_color = "
+				+ ShaderProgram.COLOR_ATTRIBUTE
+				+ ";\n" //
 				+ "  v_color.a = v_color.a * (255.0/254.0);\n" //
-				+ "  v_texCoords = " + ShaderProgram.TEXCOORD_ATTRIBUTE + "0;\n" //
-				+ "  gl_Position = u_projTrans * " + ShaderProgram.POSITION_ATTRIBUTE + ";\n" //
+				+ "  v_texCoords = "
+				+ ShaderProgram.TEXCOORD_ATTRIBUTE
+				+ "0;\n" //
+				+ "  gl_Position = u_projTrans * "
+				+ ShaderProgram.POSITION_ATTRIBUTE + ";\n" //
 				+ "}\n";
 		String fragmentShader = "#ifdef GL_ES\n" //
 				+ "#define LOWP lowp\n" //
@@ -240,7 +241,8 @@ public final class Organularity implements ContactListener {
 
 		ShaderProgram shader = new ShaderProgram(vertexShader, fragmentShader);
 		if (shader.isCompiled() == false)
-			throw new IllegalArgumentException("Error compiling shader: " + shader.getLog());
+			throw new IllegalArgumentException("Error compiling shader: "
+					+ shader.getLog());
 		obj.mSpriteBatch = new SpriteBatch(Settings.SPRITE_BATCH_SIZE, shader);
 		for (int i = 0; i < obj.mRenderBuffers.length; ++i)
 			obj.mRenderBuffers[i] = FloatArray.obtain();
@@ -248,16 +250,20 @@ public final class Organularity implements ContactListener {
 		obj.mRenderBufferB = FloatArray.obtain();
 		obj.mRenderBufferC = FloatArray.obtain();
 		obj.mRenderSwapped = false;
-		obj.mWorld = new World(new Vector2(Settings.GRAVITY_X, Settings.GRAVITY_Y), true);
+		obj.mWorld = new World(new Vector2(Settings.GRAVITY_X,
+				Settings.GRAVITY_Y), true);
 		obj.mWorld.setContactListener(obj);
 		obj.mGroupIndexPacksSize = 1;
 		obj.mGroupIndexPacks = IntArray.obtain();
-		obj.mOperationSolver = new OperationSolver(Settings.OPERATION_SOLVER_MAX_THREADS);
+		obj.mOperationSolver = new OperationSolver(
+				Settings.OPERATION_SOLVER_MAX_THREADS);
 		obj.mUpdateOperationSolver = new OperationSolver(1);
 		obj.mTissularities = LinkedHashTable.obtain();
 		obj.mMainTissularity = null;
 		obj.mInputBufferA = IntArray.obtain();
 		obj.mInputBufferB = IntArray.obtain();
+		obj.mRandomSeed = NoiseMath.hash(System.currentTimeMillis());
+		obj.mRandomNumber = 0;
 		return obj;
 	}
 
@@ -529,7 +535,8 @@ public final class Organularity implements ContactListener {
 		}
 		mInputBufferB.clear();
 		TimeMeasure.sM2.start();
-		mWorld.step(Settings.TIME_STEP, Settings.VELOCITY_ITERATIONS, Settings.POSITION_ITERATIONS);
+		mWorld.step(Settings.TIME_STEP, Settings.VELOCITY_ITERATIONS,
+				Settings.POSITION_ITERATIONS);
 		TimeMeasure.sM2.end();
 		TimeMeasure.sM3.start();
 		mMainTissularity.tick();
@@ -543,6 +550,12 @@ public final class Organularity implements ContactListener {
 		}
 		TimeMeasure.sM1.end();
 		TimeMeasure.end();
+	}
+
+	public long random() {
+		synchronized (mRandomMonitor) {
+			return NoiseMath.combine(mRandomSeed, mRandomNumber++);
+		}
 	}
 
 	// ===========================================================
@@ -564,11 +577,10 @@ public final class Organularity implements ContactListener {
 						recycle(this);
 						return;
 					}
-					long time =
-							-MathUtils
-									.floorToLong((System.currentTimeMillis()
-											- mOrganularity.mUpdateLastTime
-											- Settings.TIME_STEP_MILLIS - mOrganularity.mUpdateAccumulatedTime));
+					long time = -MathUtils
+							.floorToLong((System.currentTimeMillis()
+									- mOrganularity.mUpdateLastTime
+									- Settings.TIME_STEP_MILLIS - mOrganularity.mUpdateAccumulatedTime));
 					if (time <= 0)
 						break;
 					try {
@@ -585,7 +597,8 @@ public final class Organularity implements ContactListener {
 		private static Updater obtainPure() {
 			if (GlobalConstants.POOL)
 				synchronized (Updater.class) {
-					return sPool.size() == 0 ? new Updater() : (Updater) sPool.pop();
+					return sPool.size() == 0 ? new Updater() : (Updater) sPool
+							.pop();
 				}
 			return new Updater();
 		}

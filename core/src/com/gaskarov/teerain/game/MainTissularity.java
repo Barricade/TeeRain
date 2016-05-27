@@ -1,17 +1,11 @@
 package com.gaskarov.teerain.game;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.gaskarov.teerain.core.Cells;
 import com.gaskarov.teerain.core.Organularity;
+import com.gaskarov.teerain.core.Player;
 import com.gaskarov.teerain.core.Tissularity;
-import com.gaskarov.teerain.core.util.Resources;
-import com.gaskarov.teerain.game.game.GameTissularity;
-import com.gaskarov.teerain.game.game.TeeCellData;
-import com.gaskarov.teerain.game.hud.BackgroundTissularity;
-import com.gaskarov.teerain.game.hud.HUDTissularity;
-import com.gaskarov.teerain.game.hud.MenuTissularity;
+import com.gaskarov.teerain.resource.Resources;
+import com.gaskarov.teerain.resource.Settings;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
 import com.gaskarov.util.container.FloatArray;
@@ -37,6 +31,7 @@ public final class MainTissularity extends Tissularity {
 	private Player mPlayer;
 	private Controller mController;
 
+	private String mMapName;
 	private boolean mToInMenu;
 	private boolean mInMenu;
 	private BackgroundTissularity mBackgroundTissularity;
@@ -84,6 +79,7 @@ public final class MainTissularity extends Tissularity {
 			mOrganularity.removeTissularity(mBackgroundTissularity);
 			mOrganularity.removeTissularity(mMenuTissularity);
 		} else {
+			mGameTissularity.removePlayer(Settings.PLAYER_ID, mPlayer);
 			mOrganularity.removeTissularity(mGameTissularity);
 			mOrganularity.removeTissularity(mHUDTissularity);
 		}
@@ -99,15 +95,52 @@ public final class MainTissularity extends Tissularity {
 			mOrganularity.removeTissularity(mBackgroundTissularity);
 			mOrganularity.removeTissularity(mMenuTissularity);
 			mOrganularity.pushTissularity(mHUDTissularity);
+			mGameTissularity.setMapName(mMapName);
 			mOrganularity.pushTissularity(mGameTissularity);
-			mGameTissularity.pushPlayer();
-			mPlayer.setItem(1, Cells.CELL_TYPE_HAMMER, null);
-			mPlayer.setItem(2, Cells.CELL_TYPE_ROCK, null);
-			mPlayer.setItem(3, Cells.CELL_TYPE_LAMP, null);
-			mPlayer.setItem(4, Cells.CELL_TYPE_GRENADE_GUN, null);
-			mPlayer.setItem(5, Cells.CELL_TYPE_GROUND, null);
-			mPlayer.setItem(6, Cells.CELL_TYPE_AIR, null);
-			mPlayer.setItem(7, Cells.CELL_TYPE_TEE, TeeCellData.obtain(1));
+			mGameTissularity.setPlayer(Settings.PLAYER_ID, mPlayer);
+			// mPlayer.setItem(1, Cells.CELL_TYPE_HAMMER, null, 1);
+			// mPlayer.setItem(2, Cells.CELL_TYPE_GRENADE_GUN, null, 1);
+			// mPlayer.setItem(3, Cells.CELL_TYPE_TEE, TeeCellData.obtain(1),
+			// 64);
+			// mPlayer.setItem(4, Cells.CELL_TYPE_GRASS, null, 64);
+			// mPlayer.setItem(5, Cells.CELL_TYPE_GLASS, null, 64);
+			// mPlayer.setItem(7, Cells.CELL_TYPE_WOOD, null, 64);
+			// mPlayer.setItem(8, Cells.CELL_TYPE_LEAVES, null, 64);
+			// mPlayer.setItem(8, Cells.CELL_TYPE_SAND, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID,
+			// Cells.CELL_TYPE_COAL_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 1,
+			// Cells.CELL_TYPE_IRON_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 2,
+			// Cells.CELL_TYPE_COPPER_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 3,
+			// Cells.CELL_TYPE_TIN_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 4,
+			// Cells.CELL_TYPE_ELECTRON_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 5,
+			// Cells.CELL_TYPE_SILVER_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 6,
+			// Cells.CELL_TYPE_GOLD_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 7,
+			// Cells.CELL_TYPE_DIAMOND_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 8,
+			// Cells.CELL_TYPE_URANIUM_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 9,
+			// Cells.CELL_TYPE_GRAVITON_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 10,
+			// Cells.CELL_TYPE_SPATIAL_RIFT_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 11,
+			// Cells.CELL_TYPE_DARK_ENERGY_BLOCK, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 12,
+			// Cells.CELL_TYPE_GROUND, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 13,
+			// Cells.CELL_TYPE_STONE, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 14,
+			// Cells.CELL_TYPE_OVERSTONE, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 15,
+			// Cells.CELL_TYPE_SACREDSTONE, null, 64);
+			// mPlayer.setItem(Player.INVENTORY_ITEM_MIN_ID + 16,
+			// Cells.CELL_TYPE_FINALSTONE, null, 64);
 		}
 		super.tick();
 		if (mInMenu) {
@@ -123,15 +156,14 @@ public final class MainTissularity extends Tissularity {
 	public void render() {
 		if (mOrganularity == null)
 			return;
-		SpriteBatch spriteBatch = mOrganularity.getSpriteBatch();
 
-		Gdx.gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+		SpriteBatch spriteBatch = mOrganularity.getSpriteBatch();
 
 		FloatArray buffer = mOrganularity.getRenderBufferC();
 
 		spriteBatch.begin();
-		spriteBatch.draw(Resources.MAIN_TEXTURE, buffer.data(), 0, buffer.size());
+		spriteBatch.draw(Resources.MAIN_TEXTURE, buffer.data(), 0,
+				buffer.size());
 		spriteBatch.end();
 
 		if (!mInMenu)
@@ -142,37 +174,45 @@ public final class MainTissularity extends Tissularity {
 	public boolean keyDown(int pKeycode) {
 		if (mInMenu)
 			return mMenuTissularity.keyDown(pKeycode);
-		return mHUDTissularity.keyDown(pKeycode) && mGameTissularity.keyDown(pKeycode);
+		return mHUDTissularity.keyDown(pKeycode)
+				&& mGameTissularity.keyDown(pKeycode);
 	}
 
 	@Override
 	public boolean keyUp(int pKeycode) {
 		if (mInMenu)
 			return mMenuTissularity.keyUp(pKeycode);
-		return mHUDTissularity.keyUp(pKeycode) && mGameTissularity.keyUp(pKeycode);
+		return mHUDTissularity.keyUp(pKeycode)
+				&& mGameTissularity.keyUp(pKeycode);
 	}
 
 	@Override
 	public boolean keyTyped(char pCharacter) {
 		if (mInMenu)
-			return mMenuTissularity.keyDown(pCharacter);
-		return mHUDTissularity.keyTyped(pCharacter) && mGameTissularity.keyTyped(pCharacter);
+			return mMenuTissularity.keyTyped(pCharacter);
+		return mHUDTissularity.keyTyped(pCharacter)
+				&& mGameTissularity.keyTyped(pCharacter);
 	}
 
 	@Override
-	public boolean touchDown(int pScreenX, int pScreenY, int pPointer, int pButton) {
+	public boolean touchDown(int pScreenX, int pScreenY, int pPointer,
+			int pButton) {
 		if (mInMenu)
-			return mMenuTissularity.touchDown(pScreenX, pScreenY, pPointer, pButton);
+			return mMenuTissularity.touchDown(pScreenX, pScreenY, pPointer,
+					pButton);
 		return mHUDTissularity.touchDown(pScreenX, pScreenY, pPointer, pButton)
-				&& mGameTissularity.touchDown(pScreenX, pScreenY, pPointer, pButton);
+				&& mGameTissularity.touchDown(pScreenX, pScreenY, pPointer,
+						pButton);
 	}
 
 	@Override
 	public boolean touchUp(int pScreenX, int pScreenY, int pPointer, int pButton) {
 		if (mInMenu)
-			return mMenuTissularity.touchUp(pScreenX, pScreenY, pPointer, pButton);
+			return mMenuTissularity.touchUp(pScreenX, pScreenY, pPointer,
+					pButton);
 		return mHUDTissularity.touchUp(pScreenX, pScreenY, pPointer, pButton)
-				&& mGameTissularity.touchUp(pScreenX, pScreenY, pPointer, pButton);
+				&& mGameTissularity.touchUp(pScreenX, pScreenY, pPointer,
+						pButton);
 	}
 
 	@Override
@@ -195,7 +235,8 @@ public final class MainTissularity extends Tissularity {
 	public boolean scrolled(int pAmount) {
 		if (mInMenu)
 			return mMenuTissularity.scrolled(pAmount);
-		return mHUDTissularity.scrolled(pAmount) && mGameTissularity.scrolled(pAmount);
+		return mHUDTissularity.scrolled(pAmount)
+				&& mGameTissularity.scrolled(pAmount);
 	}
 
 	// ===========================================================
@@ -205,7 +246,8 @@ public final class MainTissularity extends Tissularity {
 	private static MainTissularity obtainPure() {
 		if (GlobalConstants.POOL)
 			synchronized (MainTissularity.class) {
-				return sPool.size() == 0 ? new MainTissularity() : (MainTissularity) sPool.pop();
+				return sPool.size() == 0 ? new MainTissularity()
+						: (MainTissularity) sPool.pop();
 			}
 		return new MainTissularity();
 	}
@@ -220,8 +262,8 @@ public final class MainTissularity extends Tissularity {
 	public static MainTissularity obtain() {
 		MainTissularity obj = obtainPure();
 		obj.init();
-		obj.mPlayer = Player.obtain();
-		obj.mController = Controller.obtain(obj.mPlayer);
+		obj.mPlayer = Player.obtain(Settings.PLAYER_ID, false);
+		obj.mController = Controller.obtain();
 		obj.mBackgroundTissularity = BackgroundTissularity.obtain();
 		obj.mMenuTissularity = MenuTissularity.obtain(obj);
 		obj.mGameTissularity = GameTissularity.obtain(obj.mController);
@@ -246,8 +288,9 @@ public final class MainTissularity extends Tissularity {
 		recyclePure(pObj);
 	}
 
-	public void inMenu(boolean pInMenu) {
-		mToInMenu = pInMenu;
+	public void toGame(String pMapName) {
+		mToInMenu = false;
+		mMapName = pMapName;
 	}
 
 	// ===========================================================

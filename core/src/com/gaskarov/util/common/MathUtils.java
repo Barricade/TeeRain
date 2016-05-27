@@ -119,6 +119,11 @@ public final class MathUtils {
 		return sign ? (-pNum - pDivisor + 1) / pDivisor : pNum / pDivisor;
 	}
 
+	public static long mod(long pNum, long pDivisor) {
+		long divisor = Math.abs(pDivisor);
+		return (pNum % divisor + divisor) % divisor;
+	}
+
 	public static int mod(int pNum, int pDivisor) {
 		int divisor = Math.abs(pDivisor);
 		return (pNum % divisor + divisor) % divisor;

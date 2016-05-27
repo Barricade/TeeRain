@@ -1,28 +1,30 @@
 package com.gaskarov.teerain.core.cellularity;
 
-import static com.gaskarov.teerain.core.util.Settings.CELL_UPDATE_SIZE;
-import static com.gaskarov.teerain.core.util.Settings.CELL_UPDATE_X;
-import static com.gaskarov.teerain.core.util.Settings.CELL_UPDATE_Y;
-import static com.gaskarov.teerain.core.util.Settings.CELL_UPDATE_Z;
-import static com.gaskarov.teerain.core.util.Settings.DYNAMIC_BODY;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_BOTTOM;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_LEFT;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_MAX_DEPTH;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_MIN_DEPTH;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_RIGHT;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_SIZE_LOG;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_SIZE_MASK;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_SQUARE_LOG;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_TOP;
-import static com.gaskarov.teerain.core.util.Settings.MAX_DROP_VOLUME;
+import static com.gaskarov.teerain.resource.Settings.CELL_UPDATE_SIZE;
+import static com.gaskarov.teerain.resource.Settings.CELL_UPDATE_X;
+import static com.gaskarov.teerain.resource.Settings.CELL_UPDATE_Y;
+import static com.gaskarov.teerain.resource.Settings.CELL_UPDATE_Z;
+import static com.gaskarov.teerain.resource.Settings.DYNAMIC_BODY;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_BOTTOM;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_LEFT;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_MAX_DEPTH;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_MIN_DEPTH;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_RIGHT;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_SIZE_LOG;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_SIZE_MASK;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_SQUARE_LOG;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_TOP;
+import static com.gaskarov.teerain.resource.Settings.MAX_DROP_VOLUME;
 
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.World;
-import com.gaskarov.teerain.core.Cells;
 import com.gaskarov.teerain.core.PhysicsWall;
 import com.gaskarov.teerain.core.Tissularity;
 import com.gaskarov.teerain.core.util.MetaBody;
-import com.gaskarov.teerain.core.util.Settings;
+import com.gaskarov.teerain.resource.Cells;
+import com.gaskarov.teerain.resource.CellsAction;
+import com.gaskarov.teerain.resource.Settings;
+import com.gaskarov.util.common.NoiseMath;
 import com.gaskarov.util.constants.ArrayConstants;
 import com.gaskarov.util.constants.GlobalConstants;
 import com.gaskarov.util.container.Array;
@@ -50,27 +52,42 @@ public class DynamicCellularity extends Cellularity {
 	private final Vector2 mTmpVec2 = new Vector2();
 
 	private final int[] mCells = new int[MAX_DROP_VOLUME];
-	private final LinkedIntTable mCellsKeys = LinkedIntTable.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mCellsKeys = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
 	private final int[] mCellsModified = new int[MAX_DROP_VOLUME];
-	private final LinkedIntTable mCellsModifiedKeys = LinkedIntTable.obtain(MAX_DROP_VOLUME);
-	private final LinkedIntTable mCellsUpdate = LinkedIntTable.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mCellsModifiedKeys = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mCellsUpdate = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
 
 	private final CellData[] mCellsData = new CellData[MAX_DROP_VOLUME];
 	private final PhysicsWall[] mCellsPhysics = new PhysicsWall[MAX_DROP_VOLUME];
 
-	private final LinkedIntTable mCellsRefresh = LinkedIntTable.obtain(MAX_DROP_VOLUME);
-	private final LinkedIntTable mCellsTick = LinkedIntTable.obtain(MAX_DROP_VOLUME);
-	private final LinkedIntTable mCellsTissulared = LinkedIntTable.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mCellsRefresh = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mCellsTick = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mCellsTissulared = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
 
-	private final LinkedIntTable mDropUpdate = LinkedIntTable.obtain(MAX_DROP_VOLUME);
-	private final LinkedIntTable mDropUsed = LinkedIntTable.obtain(MAX_DROP_VOLUME);
-	private final LinkedIntTable mDropCurrent = LinkedIntTable.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mCellsDestroy = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
+
+	private final LinkedIntTable mDropUpdate = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mDropUsed = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
+	private final LinkedIntTable mDropCurrent = LinkedIntTable
+			.obtain(MAX_DROP_VOLUME);
 
 	private ChunkCellularity mChunk;
 	private int mX;
 	private int mY;
 
 	private MetaBody mBody;
+
+	private long mRandomSeed;
+	private long mRandomNumber;
 
 	// ===========================================================
 	// Constructors
@@ -171,6 +188,11 @@ public class DynamicCellularity extends Cellularity {
 	}
 
 	@Override
+	public void destroyCell(int pX, int pY, int pZ) {
+		mCellsDestroy.set(getVal(pX, pY, pZ));
+	}
+
+	@Override
 	public PhysicsWall getPhysicsWall(int pX, int pY, int pZ) {
 		return mCellsPhysics[getVal(pX, pY, pZ)];
 	}
@@ -185,8 +207,8 @@ public class DynamicCellularity extends Cellularity {
 
 	@Override
 	public int getCell(int pX, int pY, int pZ) {
-		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT && MAX_DROP_BOTTOM <= pY
-				&& pY <= MAX_DROP_TOP) {
+		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT
+				&& MAX_DROP_BOTTOM <= pY && pY <= MAX_DROP_TOP) {
 			if (MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
 				return getCellHelper(pX, pY, pZ);
 			else
@@ -197,8 +219,9 @@ public class DynamicCellularity extends Cellularity {
 
 	@Override
 	public void setCell(int pX, int pY, int pZ, int pCell, CellData pCellData) {
-		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT && MAX_DROP_BOTTOM <= pY
-				&& pY <= MAX_DROP_TOP && MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
+		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT
+				&& MAX_DROP_BOTTOM <= pY && pY <= MAX_DROP_TOP
+				&& MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
 			setCellHelper(pX, pY, pZ, pCell, pCellData);
 		else if (pCellData != null)
 			pCellData.recycle();
@@ -206,22 +229,52 @@ public class DynamicCellularity extends Cellularity {
 
 	@Override
 	public CellData getCellData(int pX, int pY, int pZ) {
-		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT && MAX_DROP_BOTTOM <= pY
-				&& pY <= MAX_DROP_TOP && MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
+		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT
+				&& MAX_DROP_BOTTOM <= pY && pY <= MAX_DROP_TOP
+				&& MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
 			return getCellDataHelper(pX, pY, pZ);
 		return null;
 	}
 
 	@Override
 	public boolean isShellable(int pX, int pY, int pZ) {
-		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT && MAX_DROP_BOTTOM <= pY
-				&& pY <= MAX_DROP_TOP) {
+		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT
+				&& MAX_DROP_BOTTOM <= pY && pY <= MAX_DROP_TOP) {
 			if (MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
-				return isShellable(getCellHelper(pX, pY, pZ), pX, pY, pZ);
+				return CellsAction.isShellable(this, getCellHelper(pX, pY, pZ),
+						pX, pY, pZ);
 			else
 				return false;
 		}
 		return false;
+	}
+
+	@Override
+	public boolean isSolid(int pX, int pY, int pZ) {
+		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT
+				&& MAX_DROP_BOTTOM <= pY && pY <= MAX_DROP_TOP) {
+			if (MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
+				return CellsAction.isSolid(this, getCellHelper(pX, pY, pZ), pX,
+						pY, pZ);
+			else
+				return false;
+		}
+		return false;
+	}
+
+	@Override
+	public int getDefaultCell(int pX, int pY, int pZ) {
+		return Cells.CELL_TYPE_VACUUM;
+	}
+
+	@Override
+	public int getDropDefaultCell(int pX, int pY, int pZ) {
+		return Cells.CELL_TYPE_VACUUM;
+	}
+
+	@Override
+	public long random() {
+		return NoiseMath.combine(mRandomSeed, mRandomNumber++);
 	}
 
 	// ===========================================================
@@ -231,8 +284,8 @@ public class DynamicCellularity extends Cellularity {
 	private static DynamicCellularity obtainPure() {
 		if (GlobalConstants.POOL)
 			synchronized (DynamicCellularity.class) {
-				return sPool.size() == 0 ? new DynamicCellularity() : (DynamicCellularity) sPool
-						.pop();
+				return sPool.size() == 0 ? new DynamicCellularity()
+						: (DynamicCellularity) sPool.pop();
 			}
 		return new DynamicCellularity();
 	}
@@ -244,9 +297,13 @@ public class DynamicCellularity extends Cellularity {
 			}
 	}
 
-	public static DynamicCellularity obtain(float pPositionX, float pPositionY, float pAngle) {
+	public static DynamicCellularity obtain(long pRandomSeed, float pPositionX,
+			float pPositionY, float pAngle) {
 		DynamicCellularity obj = obtainPure();
-		obj.mBody = MetaBody.obtain(DYNAMIC_BODY, pPositionX, pPositionY, pAngle);
+		obj.mBody = MetaBody.obtain(DYNAMIC_BODY, pPositionX, pPositionY,
+				pAngle);
+		obj.mRandomSeed = pRandomSeed;
+		obj.mRandomNumber = 0;
 		return obj;
 	}
 
@@ -274,6 +331,8 @@ public class DynamicCellularity extends Cellularity {
 		pObj.mCellsRefresh.clear();
 		pObj.mCellsTick.clear();
 		pObj.mCellsTissulared.clear();
+
+		pObj.mCellsDestroy.clear();
 
 		pObj.mDropUpdate.clear();
 		pObj.mDropUsed.clear();
@@ -305,14 +364,6 @@ public class DynamicCellularity extends Cellularity {
 		return pVal >>> MAX_DROP_SQUARE_LOG;
 	}
 
-	private int getDefaultCell(int pX, int pY, int pZ) {
-		return Cells.CELL_TYPE_VACUUM;
-	}
-
-	private int getDropDefaultCell(int pX, int pY, int pZ) {
-		return Cells.CELL_TYPE_VACUUM;
-	}
-
 	public int size() {
 		return mCellsKeys.size();
 	}
@@ -338,13 +389,16 @@ public class DynamicCellularity extends Cellularity {
 		return cell != 0 ? cell : getDefaultCell(pX, pY, pZ);
 	}
 
-	private void setCellHelper(int pX, int pY, int pZ, int pCell, CellData pCellData) {
+	private void setCellHelper(int pX, int pY, int pZ, int pCell,
+			CellData pCellData) {
 		setCellPure(pX, pY, pZ, pCell, pCellData);
 		for (int i = 0; i < CELL_UPDATE_SIZE; ++i)
-			invalidateCell(pX + CELL_UPDATE_X[i], pY + CELL_UPDATE_Y[i], pZ + CELL_UPDATE_Z[i]);
+			invalidateCell(pX + CELL_UPDATE_X[i], pY + CELL_UPDATE_Y[i], pZ
+					+ CELL_UPDATE_Z[i]);
 	}
 
-	private void setCellPure(int pX, int pY, int pZ, int pCell, CellData pCellData) {
+	private void setCellPure(int pX, int pY, int pZ, int pCell,
+			CellData pCellData) {
 		final int val = getVal(pX, pY, pZ);
 		final int defaultCell = getDefaultCell(pX, pY, pZ);
 		final boolean tissulared = isTissulared();
@@ -352,8 +406,8 @@ public class DynamicCellularity extends Cellularity {
 		if (oldCell == 0)
 			oldCell = defaultCell;
 		if (tissulared)
-			tissularedDetach(oldCell, pX, pY, pZ);
-		detach(oldCell, pX, pY, pZ);
+			CellsAction.tissularedDetach(this, oldCell, pX, pY, pZ);
+		CellsAction.detach(this, oldCell, pX, pY, pZ);
 
 		if (mCellsData[val] != null)
 			mCellsData[val].recycle();
@@ -366,9 +420,9 @@ public class DynamicCellularity extends Cellularity {
 		} else {
 			mCellsKeys.remove(val);
 		}
-		attach(pCell, pX, pY, pZ);
+		CellsAction.attach(this, pCell, pX, pY, pZ);
 		if (tissulared)
-			tissularedAttach(pCell, pX, pY, pZ);
+			CellsAction.tissularedAttach(this, pCell, pX, pY, pZ);
 	}
 
 	public CellData getCellDataHelper(int pX, int pY, int pZ) {
@@ -376,8 +430,9 @@ public class DynamicCellularity extends Cellularity {
 	}
 
 	public void invalidateCell(int pX, int pY, int pZ) {
-		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT && MAX_DROP_BOTTOM <= pY
-				&& pY <= MAX_DROP_TOP && MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
+		if (MAX_DROP_LEFT <= pX && pX <= MAX_DROP_RIGHT
+				&& MAX_DROP_BOTTOM <= pY && pY <= MAX_DROP_TOP
+				&& MAX_DROP_MIN_DEPTH <= pZ && pZ <= MAX_DROP_MAX_DEPTH)
 			invalidateCellHelper(pX, pY, pZ);
 	}
 
@@ -396,7 +451,8 @@ public class DynamicCellularity extends Cellularity {
 			final int x0 = getValX(val0);
 			final int y0 = getValY(val0);
 			final int z0 = getValZ(val0);
-			final int cell = update(getCellHelper(x0, y0, z0), x0, y0, z0);
+			final int cell = CellsAction.update(this,
+					getCellHelper(x0, y0, z0), x0, y0, z0);
 			if (cell != 0) {
 				mCellsModified[val0] = cell;
 				mCellsModifiedKeys.set(val0);
@@ -416,8 +472,9 @@ public class DynamicCellularity extends Cellularity {
 				final int x = x0 + CELL_UPDATE_X[i];
 				final int y = y0 + CELL_UPDATE_Y[i];
 				final int z = z0 + CELL_UPDATE_Z[i];
-				if (MAX_DROP_LEFT <= x && x <= MAX_DROP_RIGHT && MAX_DROP_BOTTOM <= y
-						&& y <= MAX_DROP_TOP && MAX_DROP_MIN_DEPTH <= z && z <= MAX_DROP_MAX_DEPTH) {
+				if (MAX_DROP_LEFT <= x && x <= MAX_DROP_RIGHT
+						&& MAX_DROP_BOTTOM <= y && y <= MAX_DROP_TOP
+						&& MAX_DROP_MIN_DEPTH <= z && z <= MAX_DROP_MAX_DEPTH) {
 					final int val = getVal(x, y, z);
 					mCellsUpdate.set(val);
 					mCellsRefresh.set(val);
@@ -433,7 +490,7 @@ public class DynamicCellularity extends Cellularity {
 			final int x = getValX(val);
 			final int y = getValY(val);
 			final int z = getValZ(val);
-			refresh(getCellHelper(x, y, z), x, y, z);
+			CellsAction.refresh(this, getCellHelper(x, y, z), x, y, z);
 		}
 	}
 
@@ -443,7 +500,7 @@ public class DynamicCellularity extends Cellularity {
 			final int x = getValX(val);
 			final int y = getValY(val);
 			final int z = getValZ(val);
-			tick(getCellHelper(x, y, z), x, y, z);
+			CellsAction.tick(this, getCellHelper(x, y, z), x, y, z);
 		}
 	}
 
@@ -454,9 +511,9 @@ public class DynamicCellularity extends Cellularity {
 			int y0 = getValY(val0);
 			int z0 = getValZ(val0);
 			if (dropDfs(x0, y0, z0) && mDropCurrent.size() != mCellsKeys.size()) {
-				DynamicCellularity cellularity =
-						DynamicCellularity.obtain(mBody.getPositionX(), mBody.getPositionY(), mBody
-								.getAngle());
+				DynamicCellularity cellularity = DynamicCellularity.obtain(
+						random(), mBody.getPositionX(), mBody.getPositionY(),
+						mBody.getAngle());
 				float massCenterX = mBody.getMassCenterX();
 				float massCenterY = mBody.getMassCenterY();
 				float angularVelocity = mBody.getAngularVelocity();
@@ -475,12 +532,16 @@ public class DynamicCellularity extends Cellularity {
 				}
 				MetaBody cellularityBody = cellularity.getBody();
 				cellularityBody.setAngularVelocity(angularVelocity);
-				float vX = (massCenterY - cellularityBody.getMassCenterY()) * angularVelocity;
-				float vY = (cellularityBody.getMassCenterX() - massCenterX) * angularVelocity;
+				float vX = (massCenterY - cellularityBody.getMassCenterY())
+						* angularVelocity;
+				float vY = (cellularityBody.getMassCenterX() - massCenterX)
+						* angularVelocity;
 				cellularityBody.setVelocity(velocityX + vX, velocityY + vY);
 
-				float vX2 = (massCenterY - mBody.getMassCenterY()) * angularVelocity;
-				float vY2 = (mBody.getMassCenterX() - massCenterX) * angularVelocity;
+				float vX2 = (massCenterY - mBody.getMassCenterY())
+						* angularVelocity;
+				float vY2 = (mBody.getMassCenterX() - massCenterX)
+						* angularVelocity;
 				mBody.setVelocity(velocityX + vX2, velocityY + vY2);
 			} else
 				mDropCurrent.clear();
@@ -499,7 +560,7 @@ public class DynamicCellularity extends Cellularity {
 		mDropUsed.set(val0);
 		mDropCurrent.set(val0);
 		mDropUpdate.remove(val0);
-		if (!isDroppable(cell0, x0, y0, pZ))
+		if (!CellsAction.isDroppable(this, cell0, x0, y0, pZ))
 			return false;
 		for (int i = 0; i < ArrayConstants.DIRECTIONS_3D_SIZE; ++i) {
 			int vX = ArrayConstants.DIRECTIONS_3D_X[i];
@@ -508,15 +569,18 @@ public class DynamicCellularity extends Cellularity {
 			int posX = pX + vX;
 			int posY = pY + vY;
 			int z = pZ + vZ;
-			if (!(MAX_DROP_LEFT <= posX && posX <= MAX_DROP_RIGHT && MAX_DROP_BOTTOM <= posY && posY <= MAX_DROP_TOP))
+			if (!(MAX_DROP_LEFT <= posX && posX <= MAX_DROP_RIGHT
+					&& MAX_DROP_BOTTOM <= posY && posY <= MAX_DROP_TOP))
 				continue;
 			if (MAX_DROP_MIN_DEPTH <= z && z <= MAX_DROP_MAX_DEPTH) {
 				int x = posX;
 				int y = posY;
 				int cell = getCellHelper(x, y, z);
 				boolean flag = true;
-				if (isConnected(cell0, x0, y0, pZ, cell, vX, vY, vZ)
-						&& isConnected(cell, x, y, z, cell0, -vX, -vY, -vZ))
+				if (CellsAction.isConnected(this, cell0, x0, y0, pZ, cell, vX,
+						vY, vZ)
+						&& CellsAction.isConnected(this, cell, x, y, z, cell0,
+								-vX, -vY, -vZ))
 					flag = dropDfs(posX, posY, z);
 				if (!flag)
 					return false;
@@ -539,8 +603,10 @@ public class DynamicCellularity extends Cellularity {
 			offsetX = mChunk.offsetX();
 			offsetY = mChunk.offsetY();
 			world = mChunk.getWorld();
-			if (mBody.getGroupIndexOffset() != groupIndexOffset || mBody.getOffsetX() != offsetX
-					|| mBody.getOffsetY() != offsetY || mBody.getWorld() != world) {
+			if (mBody.getGroupIndexOffset() != groupIndexOffset
+					|| mBody.getOffsetX() != offsetX
+					|| mBody.getOffsetY() != offsetY
+					|| mBody.getWorld() != world) {
 				mBody.setGroupIndexOffset(groupIndexOffset);
 				mBody.setOffset(offsetX, offsetY);
 				mBody.setWorld(world);
@@ -560,7 +626,7 @@ public class DynamicCellularity extends Cellularity {
 			int x = getValX(val);
 			int y = getValY(val);
 			int z = getValZ(val);
-			tissularedAttach(getCellHelper(x, y, z), x, y, z);
+			CellsAction.tissularedAttach(this, getCellHelper(x, y, z), x, y, z);
 		}
 	}
 
@@ -570,7 +636,7 @@ public class DynamicCellularity extends Cellularity {
 			int x = getValX(val);
 			int y = getValY(val);
 			int z = getValZ(val);
-			tissularedDetach(getCellHelper(x, y, z), x, y, z);
+			CellsAction.tissularedDetach(this, getCellHelper(x, y, z), x, y, z);
 		}
 	}
 
@@ -599,14 +665,15 @@ public class DynamicCellularity extends Cellularity {
 		}
 	}
 
-	public void render(FloatArray[] pRenderBuffers, int pOffsetX, int pOffsetY, float pCameraX,
-			float pCameraY, float pCellSize, int pChunkX, int pChunkY, float pWidth, float pHeight) {
+	public void render(FloatArray[] pRenderBuffers, int pOffsetX, int pOffsetY,
+			float pCameraX, float pCameraY, float pCellSize, int pChunkX,
+			int pChunkY, float pWidth, float pHeight) {
 		float c = mBody.getCos();
 		float s = mBody.getSin();
-		float posX =
-				(pChunkX << Settings.CHUNK_SIZE_LOG) - pOffsetX + mBody.getPositionX() - pCameraX;
-		float posY =
-				(pChunkY << Settings.CHUNK_SIZE_LOG) - pOffsetY + mBody.getPositionY() - pCameraY;
+		float posX = (pChunkX << Settings.CHUNK_SIZE_LOG) - pOffsetX
+				+ mBody.getPositionX() - pCameraX;
+		float posY = (pChunkY << Settings.CHUNK_SIZE_LOG) - pOffsetY
+				+ mBody.getPositionY() - pCameraY;
 		posX *= pCellSize;
 		posY *= pCellSize;
 		for (int i = mCellsKeys.size() - 1; i >= 0; --i) {
@@ -615,12 +682,22 @@ public class DynamicCellularity extends Cellularity {
 			int y = getValY(val);
 			int z = getValZ(val);
 			float depthFactor = Settings.DEPTH_FACTORS[z];
-			render(getCellHelper(x, y, z), x, y, z, posX / depthFactor, posY / depthFactor, x
+			CellsAction.render(this, getCellHelper(x, y, z), x, y, z, posX
+					/ depthFactor, posY / depthFactor, x
 					- Settings.MAX_DROP_HSIZE, y - Settings.MAX_DROP_HSIZE,
 					pCellSize / depthFactor, c, s, pRenderBuffers);
 		}
 	}
 
+	public void destroyCells() {
+		while (mCellsDestroy.size() > 0) {
+			int val = mCellsDestroy.pop();
+			int x = getValX(val);
+			int y = getValY(val);
+			int z = getValZ(val);
+			CellsAction.destroyCell(this, getCellHelper(x, y, z), x, y, z);
+		}
+	}
 	// ===========================================================
 	// Inner and Anonymous Classes
 	// ===========================================================

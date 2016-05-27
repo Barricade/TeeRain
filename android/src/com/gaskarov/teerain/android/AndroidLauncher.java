@@ -8,8 +8,8 @@ import com.gaskarov.teerain.TeeRain;
 
 public class AndroidLauncher extends AndroidApplication {
 	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
+	protected void onCreate(Bundle pSavedInstanceState) {
+		super.onCreate(pSavedInstanceState);
 		AndroidApplicationConfiguration config = new AndroidApplicationConfiguration();
 		config.useWakelock = true;
 		config.useAccelerometer = false;
