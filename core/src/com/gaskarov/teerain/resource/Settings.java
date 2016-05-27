@@ -126,7 +126,7 @@ public final class Settings {
 
 	public static final float TILE_RENDER = 2f / 30;
 	public static final boolean BOX2D_DEBUG_DRAW = false;
-	public static final boolean AI_DEBUG_RENDER = true;
+	public static final boolean AI_DEBUG_RENDER = false;
 	public static final float TILE_RENDER_HUD = 2f / 20;
 	public static final float TILE_RENDER_BACKGROUND = 2f / 30;
 
