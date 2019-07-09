@@ -20,3 +20,8 @@
 * Цикл дня и ночи
 * Спаун мобов
 * Некоторые звуки
+
+[![Watch the video](https://img.youtube.com/vi/v2JgfdneGdY/maxresdefault.jpg)](https://youtu.be/v2JgfdneGdY)
+[![Watch the video](https://img.youtube.com/vi/hgFlZeOiwuE/maxresdefault.jpg)](https://youtu.be/hgFlZeOiwuE)
+[![Watch the video](https://img.youtube.com/vi/rdHCvsxKF0s/hqdefault.jpg)](https://youtu.be/rdHCvsxKF0s)
+[![Watch the video](https://img.youtube.com/vi/Mz3eZgwk15c/hqdefault.jpg)](https://youtu.be/Mz3eZgwk15c)
